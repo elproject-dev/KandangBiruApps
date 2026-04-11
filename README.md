@@ -164,13 +164,7 @@ VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-<img src="screenshots/pengeluaran.png" alt="Pengeluaran" width="200"/>
-  
-
 ## 📄 License
-
-<img src="screenshots/produk.png" alt="Produk" width="200"/>
-
 
 MIT License
 
