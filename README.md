@@ -22,7 +22,7 @@ Aplikasi mobile manajemen toko pakan ternak dengan fitur lengkap untuk penjualan
 
 - ✅ Manajemen produk dan kategori
 - ✅ Keranjang belanja (Cart)
-- ✅ Cetak struk thermal printer (70mm)
+- ✅ Cetak struk thermal printer (58mm)
 - ✅ Riwayat transaksi
 - ✅ Manajemen pengeluaran
 - ✅ Dashboard dengan statistik
@@ -91,7 +91,7 @@ adb install android/app/build/outputs/apk/debug/app-debug.apk
 
 ## 📱 Konfigurasi Printer
 
-Aplikasi menggunakan printer thermal dengan ukuran kertas 70mm. Konfigurasi cetak dapat diatur di `src/lib/print.ts`:
+Aplikasi menggunakan printer thermal dengan ukuran kertas 58mm. Konfigurasi cetak dapat diatur di `src/lib/print.ts`:
 
 - **Ukuran kertas**: 70mm
 - **Font**: Poppins
@@ -152,12 +152,5 @@ MIT License
 
 ## 👨‍💻 Author
 
-KandangBiru Team
+EL PROJECT DEVELOPMENT
 
-## 🤝 Contributing
-
-1. Fork repository
-2. Buat branch baru (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push ke branch (`git push origin feature/AmazingFeature`)
-5. Buka Pull Request
