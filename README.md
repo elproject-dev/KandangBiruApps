@@ -36,12 +36,6 @@ Berikut adalah tampilan aplikasi KandangBiru:
 
 <div align="center">
   <img src="screenshots/dashboard.png" alt="Dashboard" width="200"/>
-  <img src="screenshots/pos.png" alt="Keranjang" width="200"/>
-  <img src="screenshots/riwayat.png" alt="Riwayat" width="200"/>
-  <img src="screenshots/print.png" alt="Cetak Struk" width="200"/>
-  <img src="screenshots/setting.png" alt="Setting" width="200"/>
-  <img src="screenshots/pengeluaran.png" alt="Pengeluaran" width="200"/>
-  <img src="screenshots/produk.png" alt="Produk" width="200"/>
 </div>
 
 **Cara menambahkan screenshot:**
@@ -60,6 +54,8 @@ Sebelum memulai, pastikan Anda sudah menginstall:
 - **Android Studio** - untuk build APK
 - **Git**
 
+<img src="screenshots/pos.png" alt="Keranjang" width="200"/>
+  
 ## 📦 Installation
 
 1. Clone repository:
@@ -79,7 +75,8 @@ pnpm install
 - Update konfigurasi Supabase di `src/lib/supabase-store.ts`
 
 ## 🚀 Development
-
+<img src="screenshots/riwayat.png" alt="Riwayat" width="200"/>
+ 
 ### Jalankan Development Server (Web)
 ```bash
 pnpm dev
@@ -104,16 +101,20 @@ cd android
 
 APK akan tersedia di `android/app/build/outputs/apk/debug/app-debug.apk`
 
+ <img src="screenshots/print.png" alt="Cetak Struk" width="200"/>
+  
+
 ### Install ke Device (via ADB)
 ```bash
 adb install android/app/build/outputs/apk/debug/app-debug.apk
 ```
-
+<img src="screenshots/setting.png" alt="Setting" width="200"/>
+  
 ## 📱 Konfigurasi Printer
 
 Aplikasi menggunakan printer thermal dengan ukuran kertas 58mm. Konfigurasi cetak dapat diatur di `src/lib/print.ts`:
 
-- **Ukuran kertas**: 70mm
+- **Ukuran kertas**: 58mm
 - **Font**: Poppins
 - **Line-height**: 1.6
 - **Font-size**: 11px (body), 10px (table)
@@ -166,7 +167,13 @@ VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
+<img src="screenshots/pengeluaran.png" alt="Pengeluaran" width="200"/>
+  
+
 ## 📄 License
+
+<img src="screenshots/produk.png" alt="Produk" width="200"/>
+
 
 MIT License
 
