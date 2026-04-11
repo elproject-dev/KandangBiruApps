@@ -54,7 +54,6 @@ Sebelum memulai, pastikan Anda sudah menginstall:
 - **Android Studio** - untuk build APK
 - **Git**
 
-<img src="screenshots/pos.png" alt="Keranjang" width="200"/>
   
 ## 📦 Installation
 
@@ -75,7 +74,7 @@ pnpm install
 - Update konfigurasi Supabase di `src/lib/supabase-store.ts`
 
 ## 🚀 Development
-<img src="screenshots/riwayat.png" alt="Riwayat" width="200"/>
+
  
 ### Jalankan Development Server (Web)
 ```bash
@@ -101,14 +100,11 @@ cd android
 
 APK akan tersedia di `android/app/build/outputs/apk/debug/app-debug.apk`
 
- <img src="screenshots/print.png" alt="Cetak Struk" width="200"/>
-  
 
 ### Install ke Device (via ADB)
 ```bash
 adb install android/app/build/outputs/apk/debug/app-debug.apk
 ```
-<img src="screenshots/setting.png" alt="Setting" width="200"/>
   
 ## 📱 Konfigurasi Printer
 
@@ -160,7 +156,6 @@ mobile/
 
 ## 🔧 Environment Variables
 
-<img src="screenshots/print.png" alt="Cetak Struk" width="200"/>
 
 Buat file `.env` di root project:
 
