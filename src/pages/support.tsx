@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Phone, Mail, Clock, Info } from "lucide-react";
+import { Phone, Mail, Clock, Info, Globe, Github, Database } from "lucide-react";
 
 export default function Support() {
   return (
@@ -82,6 +82,34 @@ export default function Support() {
             <span className="text-muted-foreground">Pengembang</span>
             <span className="font-medium">EL PROJECT DEVELOPMENT</span>
           </div>
+
+          <div className="pt-3 border-t border-primary/20 space-y-2">
+            <Button
+              variant="outline"
+              className="w-full justify-center gap-2 hover:bg-primary/10 hover:border-primary/50 transition-all duration-300 hover:-translate-y-1 shadow-sm"
+              onClick={() => window.open('https://github.com/elproject-dev/KandangBiruApps', '_blank')}
+            >
+              <Github className="h-4 w-4" />
+              Kode Sumber (GitHub)
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-center gap-2 hover:bg-primary/10 hover:border-primary/50 transition-all duration-300 hover:-translate-y-1 shadow-sm"
+              onClick={() => window.open('https://vercel.com', '_blank')}
+            >
+              <Globe className="h-4 w-4" />
+              Deployment (Vercel)
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-center gap-2 hover:bg-primary/10 hover:border-primary/50 transition-all duration-300 hover:-translate-y-1 shadow-sm"
+              onClick={() => window.open('https://supabase.com/dashboard/project/lftxcfhgonpflymegugs', '_blank')}
+            >
+              <Database className="h-4 w-4" />
+              Database (Supabase)
+            </Button>
+          </div>
+
           <div className="pt-3 border-t border-primary/20">
             <p className="text-[10px] sm:text-xs text-muted-foreground text-center">
               © 2026 EL PROJECT DEVELOPMENT. Semua hak dilindungi.

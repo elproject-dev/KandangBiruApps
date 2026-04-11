@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Link } from "wouter";
 import {
   TrendingUp, Package, ShoppingCart, AlertTriangle,
-  ArrowRight, Clock, Leaf, CheckCircle, Calendar, ArrowDownLeft, Download, Loader2,
+  ArrowRight, Clock, Leaf, CheckCircle, Calendar, DollarSign, Download, Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { formatCurrency } from "@/lib/store";
 import { getProducts, getTransactions, getExpenses } from "@/lib/supabase-store";
 import { useCategories } from "@/lib/category-context";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 export default function Dashboard() {
   const [products, setProducts] = useState<any[]>([]);
@@ -19,6 +20,7 @@ export default function Dashboard() {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { categories } = useCategories();
 
   // Load data from Supabase
@@ -47,9 +49,22 @@ export default function Dashboard() {
     loadData();
   }, []);
 
+  // Detect mobile/desktop
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // Download dialog state
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
   const [dateRange, setDateRange] = useState<"today" | "week" | "month" | "all">("all");
+
+  // Chart filter state
+  const [chartFilter, setChartFilter] = useState<"week" | "month" | "all">("week");
 
   const stats = useMemo(() => {
     const today = new Date().toDateString();
@@ -85,7 +100,11 @@ export default function Dashboard() {
     }).filter((c) => c.count > 0);
   }, [products, categories]);
 
-  const recentTransactions = useMemo(() => transactions.slice(0, 6), [transactions]);
+  const recentTransactions = useMemo(() => {
+    return [...transactions]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5);
+  }, [transactions]);
 
   const topProducts = useMemo(() => {
     const salesMap: Record<string, { product: typeof products[0]; sold: number; revenue: number }> = {};
@@ -100,6 +119,67 @@ export default function Dashboard() {
     }
     return Object.values(salesMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
   }, [transactions]);
+
+  // Data untuk chart berdasarkan filter
+  const chartData = useMemo(() => {
+    const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const data = [];
+    const today = new Date();
+    const barsCount = isMobile ? 8 : 15;
+
+    if (chartFilter === "week") {
+      // Harian (Rolling otomatis, 8 batang mobile / 15 batang desktop)
+      for (let i = barsCount - 1; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toDateString();
+
+        const dayTransactions = transactions.filter(t => new Date(t.date).toDateString() === dateStr);
+        const totalRevenue = dayTransactions.reduce((sum, t) => sum + t.total, 0);
+
+        data.push({
+          day: date.getDate().toString().padStart(2, '0'),
+          date: date.toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }),
+          pendapatan: totalRevenue
+        });
+      }
+    } else if (chartFilter === "month") {
+      // Bulanan (Rolling otomatis, 8 batang mobile / 15 batang desktop)
+      for (let i = barsCount - 1; i >= 0; i--) {
+        const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const monthTxs = transactions.filter(t => {
+          const d = new Date(t.date);
+          return d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear();
+        });
+        const totalRevenue = monthTxs.reduce((sum, t) => sum + t.total, 0);
+
+        data.push({
+          day: months[date.getMonth()],
+          date: date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }),
+          pendapatan: totalRevenue
+        });
+      }
+    } else {
+      // Tahunan (Rolling otomatis, 8 batang mobile / 15 batang desktop)
+      for (let i = barsCount - 1; i >= 0; i--) {
+        const year = today.getFullYear() - i;
+        const yearTxs = transactions.filter(t => {
+          const d = new Date(t.date);
+          return d.getFullYear() === year;
+        });
+        const totalRevenue = yearTxs.reduce((sum, t) => sum + t.total, 0);
+
+        data.push({
+          day: year.toString(),
+          date: `Tahun ${year}`,
+          pendapatan: totalRevenue
+        });
+      }
+    }
+
+    return data;
+  }, [transactions, chartFilter, isMobile]);
 
   const handleDownloadReport = async (range: "today" | "week" | "month" | "all" = "all") => {
     try {
@@ -151,7 +231,7 @@ export default function Dashboard() {
 
       // Add data
       filteredTransactions.forEach((tx) => {
-        tx.items.forEach((item, index) => {
+        tx.items.forEach((item: any, index: number) => {
           worksheet.addRow({
             tanggal: new Date(tx.date).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }),
             jam: new Date(tx.date).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
@@ -159,7 +239,7 @@ export default function Dashboard() {
             namaProduk: item.product.name,
             qty: item.quantity,
             hargaSatuan: item.variant.price,
-            varian: item.variant.label,
+            varian: item.variant.label || item.variant.name || '',
             diskon: index === 0 ? (tx.discount || 0) : null,
             ppn: index === 0 ? (tx.ppn || 0) : null,
             biayaLayanan: index === 0 ? (tx.serviceCharge || 0) : null,
@@ -314,12 +394,70 @@ export default function Dashboard() {
         })}
       </div>
 
-      {/* Main Grid */}
+      {/* Charts and Recent Transactions Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5">
-        {/* Recent Transactions */}
+        {/* Revenue Chart */}
         <div className="lg:col-span-2">
-          <Card className="border-card-border shadow-sm h-full">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <Card className="border-card-border shadow-sm h-full flex flex-col">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between shrink-0">
+              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                Grafik Penjualan
+              </CardTitle>
+              <Select value={chartFilter} onValueChange={(value: any) => setChartFilter(value)}>
+                <SelectTrigger className="w-24 h-7 text-[10px] px-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="week">Harian</SelectItem>
+                  <SelectItem value="month">Bulanan</SelectItem>
+                  <SelectItem value="all">Tahunan</SelectItem>
+                </SelectContent>
+              </Select>
+            </CardHeader>
+            <CardContent className="p-0 sm:p-6 sm:pt-0 px-4 sm:px-6 flex-1 flex flex-col justify-center">
+              <div className="h-48 sm:h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                    <XAxis
+                      dataKey="day"
+                      tick={{ fontSize: isMobile ? (chartFilter === "week" ? 10 : 9) : 11 }}
+                      className="text-muted-foreground"
+                      axisLine={false}
+                      tickLine={false}
+                      interval={chartFilter === "week" ? "preserveEnd" : 0}
+                      height={30}
+                    />
+                    <YAxis
+                      hide
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      cursor={false}
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--background))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                      }}
+                      formatter={(value: number) => formatCurrency(value)}
+                      labelFormatter={(label) => {
+                        const data = chartData.find((d: any) => d.day === label);
+                        return data ? data.date : label;
+                      }}
+                    />
+                    <Bar dataKey="pendapatan" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recent Transactions */}
+        <div className="lg:col-span-1">
+          <Card className="border-card-border shadow-sm h-full flex flex-col">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between shrink-0">
               <CardTitle className="text-base flex items-center gap-2">
                 <Clock className="h-4 w-4 text-primary" />
                 Transaksi Terbaru
@@ -330,9 +468,9 @@ export default function Dashboard() {
                 </Button>
               </Link>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent className="pt-0 flex-1">
               {recentTransactions.length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground">
+                <div className="text-center py-10 text-muted-foreground h-full flex flex-col justify-center">
                   <Clock className="h-8 w-8 mx-auto mb-2 opacity-30" />
                   <p className="text-sm">Belum ada transaksi</p>
                   <Link href="/catalog">
@@ -358,62 +496,104 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+      </div>
 
-        {/* Right panel */}
-        <div className="flex flex-col gap-4">
-          {/* Category breakdown */}
-          <Card className="border-card-border shadow-sm">
+      {/* Categories, Expenses and Report Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5">
+        {/* Category breakdown */}
+        <div className="lg:col-span-2">
+          <Card className="border-card-border shadow-sm h-full">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-5">
                 <Package className="h-4 w-4 text-primary" />
                 Kategori Produk
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0 space-y-3">
-              {categoryStats.map(({ category, count, totalVariants }) => (
-                <div key={category.id} className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Package className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="font-medium">{category.name}</span>
-                      <span className="text-muted-foreground text-xs">{count} produk</span>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {categoryStats.map(({ category, count, totalVariants }) => (
+                  <div key={category.id} className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Package className="h-4 w-4 text-primary" />
                     </div>
-                    <div className="h-1.5 bg-muted rounded-full">
-                      <div
-                        className="h-1.5 bg-primary rounded-full transition-all"
-                        style={{ width: `${Math.min(100, (count / products.length) * 100)}%` }}
-                      />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="font-medium truncate">{category.name}</span>
+                        <span className="text-muted-foreground text-xs shrink-0">{count} produk</span>
+                      </div>
+                      <div className="h-1.5 bg-muted rounded-full w-full">
+                        <div
+                          className="h-1.5 bg-primary rounded-full transition-all"
+                          style={{ width: `${Math.min(100, (count / products.length) * 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{totalVariants} varian harga</p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">{totalVariants} varian harga</p>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right panel (Expenses, Report, and Low Stock) */}
+        <div className="lg:col-span-1 flex flex-col gap-4 lg:gap-5">
+          {/* Expense Card */}
+          <Link href="/expenses" className="w-full">
+            <Card className="border-card-border shadow-sm hover:shadow-md transition-all cursor-pointer hover:-translate-y-0.5 relative flex flex-col justify-center min-h-[120px]">
+              <DollarSign className="absolute top-4 right-4 h-5 w-5 text-destructive/50" />
+              <CardHeader className="pb-2 text-center lg:text-left">
+                <CardTitle className="text-base">
+                  Pengeluaran Hari Ini
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 text-center lg:text-left">
+                <p className="text-2xl font-bold text-destructive">{formatCurrency(stats.todayExpenseTotal)}</p>
+                <p className="text-xs text-muted-foreground mt-1">{stats.todayExpenseCount} catatan pengeluaran</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Download Report Card */}
+          <Card
+            className="border-card-border shadow-sm hover:shadow-md transition-all cursor-pointer hover:-translate-y-0.5 relative flex flex-col justify-center min-h-[120px]"
+            onClick={() => setDownloadDialogOpen(true)}
+          >
+            <Download className="absolute top-4 right-4 h-5 w-5 text-primary/50" />
+            <CardHeader className="pb-2 text-center lg:text-left">
+              <CardTitle className="text-base">
+                Download Laporan
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 text-center lg:text-left">
+              <p className="text-2xl font-bold text-primary">{transactions.length} Transaksi</p>
+              <p className="text-xs text-muted-foreground mt-1">Laporan penjualan dalam format Excel</p>
             </CardContent>
           </Card>
 
-          {/* Low stock alert */}
+          {/* Low stock alert - Side Panel */}
           {stats.lowStock.length > 0 && (
-            <Card className="border-yellow-400 bg-yellow-500 shadow-sm hidden sm:block">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2 text-white">
+            <Card className="border-yellow-400 bg-yellow-500 shadow-sm flex-1 flex flex-col h-full min-h-[120px]">
+              <CardHeader className="pb-3 text-center lg:text-left">
+                <CardTitle className="text-base flex items-center justify-center lg:justify-start gap-2 text-white">
                   <AlertTriangle className="h-4 w-4 text-white" />
                   Stok Menipis
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-0 space-y-2">
-                {stats.lowStock.slice(0, 4).map((product) => (
-                  <div key={product.id} className="flex items-center justify-between">
-                    <p className="text-xs font-medium truncate flex-1 mr-2 text-white">{product.name}</p>
-                    <Badge variant="outline" className="text-white border-white text-xs shrink-0">
-                      {product.stock} unit
-                    </Badge>
-                  </div>
-                ))}
-                {stats.lowStock.length > 4 && (
-                  <p className="text-xs text-white/80">+{stats.lowStock.length - 4} produk lainnya</p>
-                )}
+              <CardContent className="pt-1 space-y-2 flex-1">
+                <div className="flex flex-col gap-1.5 overflow-visible pr-1">
+                  {stats.lowStock.slice(0, 4).map((product) => (
+                    <div key={product.id} className="flex items-start justify-between p-1.5 sm:p-2 rounded-lg bg-white/10 shrink-0 gap-2">
+                      <p className="text-[10px] sm:text-xs font-medium text-white break-words flex-1 leading-tight">{product.name}</p>
+                      <Badge variant="outline" className="text-white border-white text-[9px] sm:text-[10px] px-1 sm:px-1.5 h-4 sm:h-5 shrink-0 mt-0">
+                        {product.stock} unit
+                      </Badge>
+                    </div>
+                  ))}
+                  {stats.lowStock.length > 4 && (
+                    <p className="text-[9px] sm:text-[10px] text-white/80 text-center italic shrink-0">+{stats.lowStock.length - 4} produk lainnya</p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           )}
@@ -446,71 +626,10 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {/* Expense and Report Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Expense Card */}
-        <Link href="/expenses">
-          <Card className="border-card-border shadow-sm hover:shadow-md transition-all cursor-pointer hover:-translate-y-0.5 relative">
-            <ArrowDownLeft className="absolute top-4 right-4 h-5 w-5 text-destructive/50" />
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">
-                Pengeluaran Hari Ini
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <p className="text-2xl font-bold text-destructive">{formatCurrency(stats.todayExpenseTotal)}</p>
-              <p className="text-xs text-muted-foreground mt-1">{stats.todayExpenseCount} catatan pengeluaran</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        {/* Download Report Card */}
-        <Card 
-          className="border-card-border shadow-sm hover:shadow-md transition-all cursor-pointer hover:-translate-y-0.5 relative"
-          onClick={() => setDownloadDialogOpen(true)}
-        >
-          <Download className="absolute top-4 right-4 h-5 w-5 text-primary/50" />
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">
-              Download Laporan
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <p className="text-2xl font-bold text-primary">{transactions.length} Transaksi</p>
-            <p className="text-xs text-muted-foreground mt-1">Laporan penjualan dalam format Excel</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Low stock alert - Mobile only */}
-      {stats.lowStock.length > 0 && (
-        <Card className="border-yellow-400 bg-yellow-500 shadow-sm sm:hidden">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2 text-white">
-              <AlertTriangle className="h-4 w-4 text-white" />
-              Stok Menipis
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 space-y-2">
-            {stats.lowStock.slice(0, 4).map((product) => (
-              <div key={product.id} className="flex items-center justify-between">
-                <p className="text-xs font-medium truncate flex-1 mr-2 text-white">{product.name}</p>
-                <Badge variant="outline" className="text-white border-white text-xs shrink-0">
-                  {product.stock} unit
-                </Badge>
-              </div>
-            ))}
-            {stats.lowStock.length > 4 && (
-              <p className="text-xs text-white/80">+{stats.lowStock.length - 4} produk lainnya</p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
       {/* Quick Access */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 no-print">
         {[
-          { href: "/expenses", icon: ArrowDownLeft, label: "Pengeluaran", desc: "Catat Pengeluaran" },
+          { href: "/expenses", icon: DollarSign, label: "Pengeluaran", desc: "Catat Pengeluaran" },
           { href: "/products", icon: Package, label: "Kelola Produk", desc: "Tambah & edit varian" },
           { href: "/history", icon: Clock, label: "Lihat Riwayat", desc: "Histori transaksi" },
           { href: "/cart", icon: ShoppingCart, label: "Keranjang", desc: "Lanjutkan checkout" },
@@ -532,7 +651,6 @@ export default function Dashboard() {
         })}
       </div>
 
-      {/* Download Dialog */}
       <Dialog open={downloadDialogOpen} onOpenChange={setDownloadDialogOpen}>
         <DialogContent>
           <DialogHeader>

@@ -5,22 +5,24 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { CartProvider, useCart } from "@/lib/cart-context";
 import { FontProvider } from "@/lib/font-context";
 import { ThemeProvider } from "@/lib/theme-context";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { CategoryProvider } from "@/lib/category-context";
 import {
-  LayoutDashboard,
-  ShoppingCart,
-  Package,
-  Clock,
-  Menu,
-  X,
-  Leaf,
-  PlusCircle,
-  Settings,
+  BookOpen,
   ChevronLeft,
   ChevronRight,
-  ArrowDownLeft,
-  BookOpen,
+  Clock,
+  DollarSign,
+  LayoutDashboard,
+  Leaf,
+  LogOut,
+  Menu,
   MessageSquare,
+  Package,
+  PlusCircle,
+  Settings,
+  ShoppingCart,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 import Dashboard from "@/pages/dashboard";
@@ -31,6 +33,7 @@ import Expenses from "@/pages/expenses";
 import SettingsPage from "@/pages/settings";
 import Guide from "@/pages/guide";
 import Support from "@/pages/support";
+import LoginPage from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -40,15 +43,18 @@ const navItems = [
   { path: "/cart", icon: PlusCircle, label: "Kasir", showBadge: true },
   { path: "/products", icon: Package, label: "Produk" },
   { path: "/history", icon: Clock, label: "Riwayat" },
-  { path: "/expenses", icon: ArrowDownLeft, label: "Pengeluaran", showOnMobile: false },
+  { path: "/expenses", icon: DollarSign, label: "Pengeluaran", showOnMobile: false },
   { path: "/guide", icon: BookOpen, label: "Panduan", showOnMobile: false },
-  { path: "/support", icon: MessageSquare, label: "Hubungi Support", showOnMobile: false },
+  { path: "/support", icon: MessageSquare, label: "Layanan", showOnMobile: false },
   { path: "/settings", icon: Settings, label: "Setting" },
+  { path: "logout", icon: LogOut, label: "Keluar", isLogout: true, showOnMobile: false },
 ];
 
 function SidebarNav({ collapsed, onToggleCollapse, onClose }: { collapsed?: boolean; onToggleCollapse?: () => void; onClose?: () => void }) {
   const [location] = useLocation();
   const { itemCount } = useCart();
+  const { signOut } = useAuth();
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
   return (
     <div className="flex flex-col h-full">
@@ -57,14 +63,41 @@ function SidebarNav({ collapsed, onToggleCollapse, onClose }: { collapsed?: bool
         <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shrink-0">
           <Leaf className="h-4 w-4 text-white" />
         </div>
-        <span className={`font-bold text-base whitespace-nowrap ml-2 transition-all duration-300 ${collapsed ? 'opacity-0 w-0 overflow-hidden ml-0' : 'opacity-100 w-auto ml-2'}`}>Kandang Biru</span>
+        <span className={`font-bold text-base whitespace-nowrap transition-all duration-300 ${collapsed ? 'opacity-0 w-0 overflow-hidden ml-0' : 'opacity-100 w-auto ml-2'}`}>Kandang Biru</span>
       </div>
 
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+      <nav className="flex-1 p-3 space-y-1">
         {navItems.map((item) => {
           const isActive = location === item.path;
           const Icon = item.icon;
           const badge = item.showBadge ? itemCount : 0;
+          const isLogout = item.isLogout;
+
+          if (isLogout) {
+            return (
+              <button
+                key={item.path}
+                onClick={() => {
+                  setLogoutLoading(true);
+                  signOut().finally(() => setLogoutLoading(false));
+                }}
+                disabled={logoutLoading}
+                data-testid={`sidebar-${item.label.toLowerCase()}`}
+                className={`w-full flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-4 py-3 rounded-xl transition-all font-medium text-sm text-muted-foreground hover:bg-muted hover:text-foreground ${collapsed ? 'rounded-none' : ''}`}
+                title={collapsed ? item.label : undefined}
+              >
+                <div className="relative">
+                  {logoutLoading ? (
+                    <span className={`h-4 w-4 animate-spin rounded-full border-2 border-muted border-t-muted-foreground`} />
+                  ) : (
+                    <Icon className="h-4 w-4" />
+                  )}
+                </div>
+                {!collapsed && item.label}
+              </button>
+            );
+          }
+
           return (
             <Link
               key={item.path}
@@ -242,6 +275,36 @@ function AppShell() {
   );
 }
 
+function AuthGate() {
+  const { session, loading } = useAuth();
+  const [location, setLocation] = useLocation();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="h-10 w-10 rounded-full border-2 border-muted border-t-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (!session && location !== "/login") {
+    setLocation("/login");
+    return null;
+  }
+
+  if (session && location === "/login") {
+    setLocation("/");
+    return null;
+  }
+
+  return (
+    <Switch>
+      <Route path="/login" component={LoginPage} />
+      <Route component={AppShell} />
+    </Switch>
+  );
+}
+
 function PageTitle() {
   const [location] = useLocation();
   const titles: Record<string, string> = {
@@ -278,16 +341,18 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <ThemeProvider>
-          <CategoryProvider>
-            <FontProvider>
-              <CartProvider>
-                <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-                  <AppShell />
-                </WouterRouter>
-                <Toaster />
-              </CartProvider>
-            </FontProvider>
-          </CategoryProvider>
+          <AuthProvider>
+            <CategoryProvider>
+              <FontProvider>
+                <CartProvider>
+                  <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                    <AuthGate />
+                  </WouterRouter>
+                  <Toaster />
+                </CartProvider>
+              </FontProvider>
+            </CategoryProvider>
+          </AuthProvider>
         </ThemeProvider>
       </TooltipProvider>
     </QueryClientProvider>

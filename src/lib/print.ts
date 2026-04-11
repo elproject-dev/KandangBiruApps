@@ -68,7 +68,7 @@ export function print(
 <div class="c" style="font-size:9px">Telp: ${storePhone}</div>
 <div class="d"></div>
 <table style="font-size:9px">
-  <tr><td style="width:60px">No ID</td><td>: #${data.id}</td></tr>
+  <tr><td style="width:60px">No ID</td><td>: ${data.id}</td></tr>
   <tr><td>Tanggal</td><td>: ${new Date(data.date).toLocaleDateString("id-ID",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",hour12:false})}</td></tr>
   <tr><td>Pelanggan</td><td>: ${data.customerName}</td></tr>
 </table>

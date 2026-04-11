@@ -143,29 +143,29 @@ function TransactionCard({ transaction, onDelete, expanded, onToggle }: { transa
                   <div>
                     <p className="text-sm font-medium">{item.product.name}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {item.quantity} × {formatCurrency(item.variant.price)}
+                      <span className="font-semibold text-muted-foreground">{item.quantity}</span> <span className="font-semibold text-primary">{item.variant.unit}</span> <span className="font-semibold text-muted-foreground">× {formatCurrency(item.variant.price)}</span>
                     </p>
                   </div>
-                  <p className="text-sm font-semibold">{formatCurrency(item.variant.price * item.quantity)}</p>
+                  <p className="text-sm font-semibold text-muted-foreground">{formatCurrency(item.variant.price * item.quantity)}</p>
                 </div>
                 {i < transaction.items.length - 1 && <Separator className="opacity-40" />}
               </div>
             ))}
             </div>
-            <Separator />
-            {transaction.discount && transaction.discount > 0 && (
+            <Separator className="my-2" />
+            {transaction.discount !== undefined && transaction.discount > 0 && (
               <div className="flex justify-between items-center py-1">
                 <p className="text-sm text-red-600">Diskon</p>
                 <p className="text-sm font-semibold text-red-600">- {formatCurrency(transaction.discount)}</p>
               </div>
             )}
-            {transaction.serviceCharge && transaction.serviceCharge > 0 && (
+            {transaction.serviceCharge !== undefined && transaction.serviceCharge > 0 && (
               <div className="flex justify-between items-center py-1">
                 <p className="text-sm text-muted-foreground">Biaya Layanan</p>
                 <p className="text-sm font-semibold">+ {formatCurrency(transaction.serviceCharge)}</p>
               </div>
             )}
-            {transaction.ppn && transaction.ppn > 0 && (
+            {transaction.ppn !== undefined && transaction.ppn > 0 && (
               <div className="flex justify-between items-center py-1">
                 <p className="text-sm text-muted-foreground">PPN ({transaction.ppnPercentage}%)</p>
                 <p className="text-sm font-semibold">+ {formatCurrency(transaction.ppn)}</p>
@@ -173,7 +173,7 @@ function TransactionCard({ transaction, onDelete, expanded, onToggle }: { transa
             )}
             <div className="flex justify-between items-center pt-1">
               <p className="font-bold text-sm">Total</p>
-              <p className="font-bold text-base text-black">{formatCurrency(transaction.total)}</p>
+              <p className="font-bold text-base text-foreground">{formatCurrency(transaction.total)}</p>
             </div>
           </div>
         </div>

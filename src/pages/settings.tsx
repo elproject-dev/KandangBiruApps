@@ -1,4 +1,4 @@
-import { Settings as SettingsIcon, Type, Moon, Sun, Plus, Trash2, AlertCircle, Store, QrCode, Package, Tag, Loader2 } from "lucide-react";
+import { Settings as SettingsIcon, Type, Moon, Sun, Plus, Trash2, AlertCircle, Store, QrCode, Package, Tag, Loader2, LogOut } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -6,10 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useFont } from "@/lib/font-context";
 import { useTheme } from "@/lib/theme-context";
+import { useAuth } from "@/lib/auth-context";
 import { useCategories } from "@/lib/category-context";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { clearAllTransactions } from "@/lib/store";
-import { getSettings, saveSettings, getProducts, deleteProduct } from "@/lib/supabase-store";
+import { getSettings, saveSettings, getProducts, deleteProduct, clearAllTransactions } from "@/lib/supabase-store";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -27,6 +27,7 @@ const themes = [
 export default function SettingsPage() {
   const { fontSize, setFontSize } = useFont();
   const { theme, setTheme } = useTheme();
+  const { signOut } = useAuth();
   const { categories, addCategory, deleteCategory } = useCategories();
   const [newCategory, setNewCategory] = useState("");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -46,6 +47,7 @@ export default function SettingsPage() {
   const [enablePPN, setEnablePPN] = useState(false);
   const [defaultPPN, setDefaultPPN] = useState("");
   const [loading, setLoading] = useState(true);
+  const [logoutLoading, setLogoutLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { toast } = useToast();
 
@@ -115,13 +117,22 @@ export default function SettingsPage() {
     await deleteCategory(id);
   };
 
-  const handleClearTransactions = () => {
-    clearAllTransactions();
-    setShowClearConfirm(false);
-    toast({
-      title: "Berhasil",
-      description: "Semua riwayat transaksi telah dihapus",
-    });
+  const handleClearTransactions = async () => {
+    try {
+      await clearAllTransactions();
+      setShowClearConfirm(false);
+      toast({
+        title: "Berhasil",
+        description: "Semua riwayat transaksi telah dihapus",
+      });
+    } catch (err) {
+      console.error("Failed to clear transactions:", err);
+      toast({
+        title: "Error",
+        description: "Gagal menghapus riwayat transaksi",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleResetProducts = async () => {
@@ -308,6 +319,18 @@ export default function SettingsPage() {
         description: "Gagal menyimpan pengaturan PPN",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleLogout = async () => {
+    setLogoutLoading(true);
+    try {
+      await signOut();
+      toast({ title: "Berhasil", description: "Anda telah logout" });
+    } catch {
+      toast({ title: "Error", description: "Gagal logout", variant: "destructive" });
+    } finally {
+      setLogoutLoading(false);
     }
   };
 
@@ -648,6 +671,35 @@ export default function SettingsPage() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+        </CardContent>
+      </Card>
+
+      <Card className="border-card-border shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <LogOut className="h-4 w-4 text-primary" />
+            Akun
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={handleLogout}
+            disabled={logoutLoading}
+          >
+            {logoutLoading ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Keluar...
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-2">
+                <LogOut className="h-4 w-4" />
+                Keluar
+              </span>
+            )}
+          </Button>
         </CardContent>
       </Card>
     </div>

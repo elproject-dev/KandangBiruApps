@@ -195,17 +195,12 @@ export function getCategoryLabel(category: string): string {
 }
 
 export function getCategoryColor(category: string): string {
-  return CATEGORY_COLORS[category as MainCategory] ?? "bg-gray-100 text-gray-600";
+  return "bg-gray-100 text-gray-600";
 }
 
-export function importProductsFromExcel(rows: Record<string, string>[]): { imported: number; errors: string[] } {
-  const existing = getProducts();
+export function importProductsFromExcel(rows: Record<string, string>[]): { imported: number; errors: string[]; products: FeedProduct[] } {
   const errors: string[] = [];
   const productMap = new Map<string, FeedProduct>();
-
-  for (const existing_p of existing) {
-    productMap.set(existing_p.name.toLowerCase().trim(), existing_p);
-  }
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -251,9 +246,8 @@ export function importProductsFromExcel(rows: Record<string, string>[]): { impor
   }
 
   const updated = Array.from(productMap.values()).filter((p) => p.variants.length > 0);
-  saveProducts(updated);
 
-  return { imported: updated.length, errors };
+  return { imported: updated.length, errors, products: updated };
 }
 
 export function generateExcelTemplate(): { headers: string[]; sampleRows: string[][] } {

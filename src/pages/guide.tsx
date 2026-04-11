@@ -334,6 +334,36 @@ export default function Guide() {
           </ul>
         </CardContent>
       </Card>
+
+      {/* Penting - Database Supabase */}
+      <Card className="bg-red-50 border-red-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-red-700">
+            <span>⚠️</span> Penting: Aktivitas Database
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="bg-red-100 p-4 rounded-lg border border-red-300">
+            <p className="text-sm font-bold text-red-800 mb-2">🚨 JAGA AKTIVITAS DATABASE SUPABASE</p>
+            <p className="text-sm text-red-700 mb-3">
+              Supabase akan <strong>men-pause (menonaktifkan)</strong> database jika tidak ada aktivitas selama 1 minggu.
+            </p>
+            <p className="text-sm text-red-700 mb-3">
+              Untuk menghindari database di-pause, pastikan melakukan aktivitas di aplikasi <strong>minimal sekali seminggu</strong>,
+              seperti:
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-sm text-red-700 ml-4">
+              <li>Membuka aplikasi</li>
+              <li>Menambah atau mengedit produk</li>
+              <li>Melakukan transaksi penjualan</li>
+              <li>Mencatat pengeluaran</li>
+            </ul>
+            <p className="text-sm text-red-800 font-semibold mt-3">
+              Jika database di-pause, Anda perlu mengaktifkannya kembali melalui dashboard Supabase.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -255,12 +255,12 @@ export default function Products() {
       const rows = utils.sheet_to_json<Record<string, string>>(ws, { defval: "" });
       const result = importProductsFromExcel(rows);
 
+      // Use the products directly from the result, not from localStorage
+      const importedProducts = result.products;
+
       // Upsert by name: if product exists (case-insensitive), update it; else insert
       const current = await getProducts();
       const byName = new Map(current.map((p) => [p.name.toLowerCase().trim(), p] as const));
-
-      // Fallback: importer writes to localStorage; we reuse its output for now.
-      const importedProducts = (JSON.parse(localStorage.getItem("pakan_ternak_products_v2") || "[]") as FeedProduct[]);
 
       for (const p of importedProducts) {
         const existing = byName.get(p.name.toLowerCase().trim());
@@ -283,7 +283,7 @@ export default function Products() {
       }
 
       await refresh();
-      setImportResult(`Berhasil import/update ${result.imported} produk`);
+      setImportResult(`Berhasil import/update ${importedProducts.length} produk`);
       setImportErrors(result.errors);
       toast({ title: "Import Selesai", description: `${result.imported} produk diimport` });
     } catch (err) {

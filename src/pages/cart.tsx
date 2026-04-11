@@ -107,11 +107,11 @@ export default function Cart() {
     ).slice(0, 5);
   }, [itemName, products]);
 
-  const discountAmount = discount ? Math.max(0, parseInt(discount.replace(/\D/g, ""), 10) || 0) : 0;
-  const serviceChargeAmount = serviceCharge ? Math.max(0, parseInt(serviceCharge.replace(/\D/g, ""), 10) || 0) : 0;
-  const ppnPercentage = ppn ? Math.max(0, parseFloat(ppn.replace(/,/g, ".")) || 0) : 0;
-  const ppnAmount = Math.round((total - discountAmount + serviceChargeAmount) * (ppnPercentage / 100));
-  const grandTotal = Math.max(0, total - discountAmount + serviceChargeAmount + ppnAmount);
+  const discountAmount = (enableDiscount && discount) ? Math.max(0, parseInt(discount.replace(/\D/g, ""), 10) || 0) : undefined;
+  const serviceChargeAmount = (enableServiceCharge && serviceCharge) ? Math.max(0, parseInt(serviceCharge.replace(/\D/g, ""), 10) || 0) : undefined;
+  const ppnPercentage = (enablePPN && ppn) ? Math.max(0, parseFloat(ppn.replace(/,/g, ".")) || 0) : undefined;
+  const ppnAmount = (enablePPN && ppnPercentage !== undefined && ppnPercentage > 0) ? Math.round((total - (discountAmount || 0) + (serviceChargeAmount || 0)) * (ppnPercentage / 100)) : undefined;
+  const grandTotal = Math.max(0, total - (discountAmount || 0) + (serviceChargeAmount || 0) + (ppnAmount || 0));
 
   const handleAddManualItem = () => {
     if (!itemName.trim()) {
@@ -311,10 +311,10 @@ export default function Cart() {
         total: grandTotal,
         customerName: customerName || "Umum",
         paymentMethod: paymentMethod,
-        discount: discountAmount,
-        serviceCharge: serviceChargeAmount,
-        ppn: ppnAmount,
-        ppnPercentage: ppnPercentage,
+        discount: discountAmount || 0,
+        serviceCharge: serviceChargeAmount || 0,
+        ppn: ppnAmount || 0,
+        ppnPercentage: ppnPercentage || 0,
         date: new Date().toISOString()
       };
 
@@ -434,7 +434,7 @@ export default function Cart() {
           </div>
           <h2 className="text-xl font-bold">Transaksi Berhasil!</h2>
           <p className="text-2xl font-black mt-2">{formatCurrency(lastTransaction.total)}</p>
-          <p className="text-sm opacity-80 mt-1">#{lastTransaction.id} · {lastTransaction.customerName} · {lastTransaction.paymentMethod.toUpperCase()}</p>
+          <p className="text-sm opacity-80 mt-1">{lastTransaction.id} · {lastTransaction.customerName} · {lastTransaction.paymentMethod.toUpperCase()}</p>
         </div>
 
         <Card className="border-card-border">
@@ -457,21 +457,21 @@ export default function Cart() {
               </div>
             ))}
             <Separator className="my-2" />
-            {lastTransaction.discount && lastTransaction.discount > 0 && (
+            {lastTransaction.discount !== undefined && lastTransaction.discount !== null && lastTransaction.discount > 0 && (
               <div className="flex justify-between text-sm text-red-600 py-1">
                 <span>Diskon</span>
                 <span>-{formatCurrency(lastTransaction.discount)}</span>
               </div>
             )}
-            {lastTransaction.serviceCharge && lastTransaction.serviceCharge > 0 && (
+            {lastTransaction.serviceCharge !== undefined && lastTransaction.serviceCharge !== null && lastTransaction.serviceCharge > 0 && (
               <div className="flex justify-between text-sm text-muted-foreground py-1">
                 <span>Biaya Layanan</span>
                 <span>+{formatCurrency(lastTransaction.serviceCharge)}</span>
               </div>
             )}
-            {lastTransaction.ppn && lastTransaction.ppn > 0 && (
+            {lastTransaction.ppn !== undefined && lastTransaction.ppn !== null && lastTransaction.ppn > 0 && (
               <div className="flex justify-between text-sm text-muted-foreground py-1">
-                <span>PPN ({lastTransaction.ppnPercentage}%)</span>
+                <span>PPN ({lastTransaction.ppnPercentage || 0}%)</span>
                 <span>+{formatCurrency(lastTransaction.ppn)}</span>
               </div>
             )}
@@ -803,22 +803,22 @@ export default function Cart() {
                 <span>Subtotal ({items.reduce((s, i) => s + i.quantity, 0)} item)</span>
                 <span>{formatCurrency(total)}</span>
               </div>
-              {discountAmount > 0 && (
+              {enableDiscount && discountAmount !== undefined && discountAmount > 0 && (
                 <div className="flex justify-between text-red-600">
                   <span>Diskon</span>
-                  <span>- {formatCurrency(discountAmount)}</span>
+                  <span>- {formatCurrency(discountAmount || 0)}</span>
                 </div>
               )}
-              {serviceChargeAmount > 0 && (
+              {enableServiceCharge && serviceChargeAmount !== undefined && serviceChargeAmount > 0 && (
                 <div className="flex justify-between text-muted-foreground">
                   <span>Biaya Layanan</span>
-                  <span>+ {formatCurrency(serviceChargeAmount)}</span>
+                  <span>+ {formatCurrency(serviceChargeAmount || 0)}</span>
                 </div>
               )}
-              {ppnAmount > 0 && (
+              {enablePPN && ppnAmount !== undefined && ppnAmount > 0 && (
                 <div className="flex justify-between text-muted-foreground">
-                  <span>PPN ({ppnPercentage}%)</span>
-                  <span>+ {formatCurrency(ppnAmount)}</span>
+                  <span>PPN ({ppnPercentage || 0}%)</span>
+                  <span>+ {formatCurrency(ppnAmount || 0)}</span>
                 </div>
               )}
               <Separator />
