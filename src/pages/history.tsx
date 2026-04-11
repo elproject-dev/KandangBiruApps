@@ -8,13 +8,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { formatCurrency } from "@/lib/store";
 import { getTransactions, deleteTransaction, type Transaction, getSettings } from "@/lib/supabase-store";
 import { useToast } from "@/hooks/use-toast";
-import { registerPlugin } from '@capacitor/core';
-
-interface CapacitorPrinterPlugin {
-  print: (options: { content: string }) => Promise<void>;
-}
-
-const CapacitorPrinter = registerPlugin<CapacitorPrinterPlugin>('CapacitorPrinter');
+import { Printer as CapacitorPrinter } from "@capgo/capacitor-printer";
+import { Capacitor } from "@capacitor/core";
+import { print, type PrintTemplateData } from "@/lib/print";
 
 function TransactionCard({ transaction, onDelete, expanded, onToggle }: { transaction: Transaction; onDelete: (id: string) => void; expanded: boolean; onToggle: () => void }) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -23,90 +19,48 @@ function TransactionCard({ transaction, onDelete, expanded, onToggle }: { transa
   const handlePrint = async () => {
     // Load settings from Supabase
     const settings = await getSettings();
-    const storeName = settings.storeName || "TOKO PAKAN TERNAK";
-    const storeAddress = settings.storeAddress || "Jl. Peternakan No.22 Ngalor Ngidul, Kec. Nganjuk";
-    const storePhone = settings.storePhone || "0812-3456-7890";
-    const storeFooter = settings.storeFooter || "Terima kasih telah berbelanja";
-    const qrCodeLink = settings.qrCodeLink || "";
-    const showQRCode = settings.showQRCode || false;
+    
+    const printData: PrintTemplateData = {
+      id: transaction.id,
+      date: transaction.date,
+      customerName: transaction.customerName,
+      paymentMethod: transaction.paymentMethod,
+      items: transaction.items,
+      total: transaction.total,
+      discount: transaction.discount,
+      serviceCharge: transaction.serviceCharge,
+      ppn: transaction.ppn,
+      ppnPercentage: transaction.ppnPercentage,
+    };
 
-    const html = `<!DOCTYPE html>
-<html><head><title>Struk</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-<style>
-  @page{size:58mm auto;margin:1mm;}
-  body{width:58mm;margin:0 auto;padding:3mm;font-family:'Poppins',sans-serif;font-size:10px;line-height:1.8;color:#000}
-  .c{text-align:center}.b{font-weight:600}.d{border-top:1px dashed #000;margin:3px 0}
-  table{width:100%;border-collapse:collapse}td{padding:1px 0;font-size:9px;vertical-align:top}.r{text-align:right}
-  #qrcode{display:flex;justify-content:center;margin-top:4px;}
-  #qrcode img{width:70px;height:70px}
-</style></head>
-<body>
-<div class="c b" style="font-size:14px">${storeName}</div>
-<div class="c" style="font-size:8px">${storeAddress}</div>
-<div class="c" style="font-size:8px">Telp: ${storePhone}</div>
-<div class="d"></div>
-<table style="font-size:8px">
-  <tr><td style="width:60px">No ID</td><td>: #${transaction.id}</td></tr>
-  <tr><td>Tanggal</td><td>: ${new Date(transaction.date).toLocaleDateString("id-ID",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",hour12:false})}</td></tr>
-  <tr><td>Pelanggan</td><td>: ${transaction.customerName}</td></tr>
-</table>
-<div class="d"></div>
-<table>
-${transaction.items.map((item) => `<tr>
-  <td style="width:7px; padding-right: 5px; text-align: left">${item.quantity}</td>
-  <td style="width:30px; padding-right: 5px">${item.variant.unit}</td>
-  <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.product.name.toLowerCase()}</td>
-  <td class="r" style="padding-left: 10px">${formatCurrency(item.variant.price * item.quantity)}</td>
-</tr>`).join("")}
-</table>
-<div class="d"></div>
-<table>
-  ${(() => {
-    const subtotal = transaction.items.reduce((sum, item) => sum + (item.variant.price * item.quantity), 0);
-    return `
-  <tr><td>Subtotal</td><td class="r">${formatCurrency(subtotal)}</td></tr>
-  ${transaction.discount && transaction.discount > 0 ? `<tr><td style="color:red">Diskon</td><td class="r" style="color:red">-${formatCurrency(transaction.discount)}</td></tr>` : ""}
-  ${transaction.serviceCharge && transaction.serviceCharge > 0 ? `<tr><td>Biaya Layanan</td><td class="r">+${formatCurrency(transaction.serviceCharge)}</td></tr>` : ""}
-  ${transaction.ppn && transaction.ppn > 0 ? `<tr><td>PPN (${transaction.ppnPercentage}%)</td><td class="r">+${formatCurrency(transaction.ppn)}</td></tr>` : ""}
-  <tr class="b"><td>TOTAL</td><td class="r">${formatCurrency(transaction.total)}</td></tr>`;
-  })()}
-</table>
-<div class="d"></div>
-<table style="font-size:8px">
-  <tr><td>Metode Pembayaran</td><td class="r">${transaction.paymentMethod.toUpperCase()}</td></tr>
-</table>
-<div class="d"></div>
-<div class="c" style="font-size:8px;margin-top:10px">${storeFooter}</div>
-${showQRCode && qrCodeLink ? `<div id="qrcode"></div>` : ""}
-<script>
-  window.onload=function(){
-    ${showQRCode && qrCodeLink ? `new QRCode(document.getElementById("qrcode"), {text: "${qrCodeLink}", width: 70, height: 70});` : ""}
-  };
-</script>
-</body></html>`;
+    const html = print(printData, settings);
 
-    // Try to use Capgo Printer on Android
-    try {
-      const { Capacitor } = await import('@capacitor/core');
-      if (Capacitor.getPlatform() === 'android') {
-        await CapacitorPrinter.print({
-          content: html,
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await CapacitorPrinter.printHtml({
+          html: html,
         });
+      } catch (err) {
+        console.error("Capacitor printing failed:", err);
         toast({
-          title: "Print Berhasil",
-          description: "Struk sedang diprint",
+          title: "Gagal Print",
+          description: "Terjadi kesalahan saat mencetak di Android",
+          variant: "destructive",
         });
-        return;
       }
-    } catch (error) {
-      console.log('Capgo Printer not available, using fallback');
+      return;
     }
 
-    // Fallback to window.print() for web
+    // Use window.open for web platform
     const printWindow = window.open("", "_blank", "width=800,height=700");
-    if (!printWindow) return;
+    if (!printWindow) {
+      toast({
+        title: "Gagal Print",
+        description: "Popup diblokir oleh browser",
+        variant: "destructive",
+      });
+      return;
+    }
     printWindow.document.write(html);
     printWindow.document.close();
   };

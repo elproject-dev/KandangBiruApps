@@ -84,12 +84,14 @@ function normalizeVariants(input: unknown): ProductVariant[] {
 }
 
 function normalizeProduct(row: any): FeedProduct {
+  const stock = typeof row.stock === 'number' ? row.stock : Number(row.stock) || 0;
+  console.log(`Loading product ${row.name}: stock=${stock} (type: ${typeof row.stock})`);
   return {
     id: row.id,
     name: row.name ?? '',
     category: row.category ?? '',
     description: row.description ?? '',
-    stock: typeof row.stock === 'number' ? row.stock : Number(row.stock) || 0,
+    stock: stock,
     variants: normalizeVariants(row.variants),
   };
 }

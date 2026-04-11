@@ -12,6 +12,9 @@ import { useCart } from "@/lib/cart-context";
 import { formatCurrency, convertToOns, type FeedProduct, type ProductVariant } from "@/lib/store";
 import { getProducts, saveTransaction, getSettings, incrementTransactionNumber, updateProduct } from "@/lib/supabase-store";
 import { useLocation } from "wouter";
+import { Printer as CapacitorPrinter } from "@capgo/capacitor-printer";
+import { Capacitor } from "@capacitor/core";
+import { print, type PrintTemplateData } from "@/lib/print";
 
 type DoneTransaction = {
   id: string;
@@ -330,6 +333,12 @@ export default function Cart() {
         if (product) {
           const qtyOns = convertToOns(item.quantity, item.variant.unit);
           const newStock = Math.max(0, product.stock - qtyOns);
+          console.log(`Stock update: ${product.name}`, {
+            oldStock: product.stock,
+            qtyOns,
+            unit: item.variant.unit,
+            newStock
+          });
           await updateProduct(product.id, { stock: newStock });
         }
       }
@@ -370,79 +379,55 @@ export default function Cart() {
     
     // Load settings from Supabase
     const settings = await getSettings();
-    const storeName = settings.storeName || "TOKO PAKAN TERNAK";
-    const storeAddress = settings.storeAddress || "Jl. Peternakan No.22 Ngalor Ngidul, Kec. Nganjuk";
-    const storePhone = settings.storePhone || "0812-3456-7890";
-    const storeFooter = settings.storeFooter || "Terima kasih telah berbelanja";
-    const qrCodeLink = settings.qrCodeLink || "";
-    const showQRCode = settings.showQRCode || false;
     
+    const printData: PrintTemplateData = {
+      id: lastTransaction.id,
+      date: lastTransaction.date,
+      customerName: lastTransaction.customerName,
+      paymentMethod: lastTransaction.paymentMethod,
+      items: lastTransaction.items,
+      total: lastTransaction.total,
+      discount: lastTransaction.discount,
+      serviceCharge: lastTransaction.serviceCharge,
+      ppn: lastTransaction.ppn,
+      ppnPercentage: lastTransaction.ppnPercentage,
+    };
+
+    const html = print(printData, settings);
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await CapacitorPrinter.printHtml({
+          html: html,
+        });
+      } catch (err) {
+        console.error("Capacitor printing failed:", err);
+        toast({
+          title: "Gagal Print",
+          description: "Terjadi kesalahan saat mencetak di Android",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
+    // Use window.open for web platform
     const printWindow = window.open("", "_blank", "width=800,height=700");
-    if (!printWindow) return;
-    const html = `<!DOCTYPE html>
-<html><head><title>Struk</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-<style>
-  @page{size:58mm auto;margin:1mm;}
-  body{width:58mm;margin:0 auto;padding:3mm;font-family:'Poppins',sans-serif;font-size:10px;line-height:1.8;color:#000}
-  .c{text-align:center}.b{font-weight:600}.d{border-top:1px dashed #000;margin:3px 0}
-  table{width:100%;border-collapse:collapse}td{padding:1px 0;font-size:9px;vertical-align:top}.r{text-align:right}
-  #qrcode{display:flex;justify-content:center;margin-top:4px;}
-  #qrcode img{width:70px;height:70px}
-</style></head>
-<body>
-<div class="c b" style="font-size:14px">${storeName}</div>
-<div class="c" style="font-size:8px">${storeAddress}</div>
-<div class="c" style="font-size:8px">Telp: ${storePhone}</div>
-<div class="d"></div>
-<table style="font-size:8px">
-  <tr><td style="width:60px">No ID</td><td>: #${lastTransaction.id}</td></tr>
-  <tr><td>Tanggal</td><td>: ${new Date(lastTransaction.date).toLocaleDateString("id-ID",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",hour12:false})}</td></tr>
-  <tr><td>Pelanggan</td><td>: ${lastTransaction.customerName}</td></tr>
-</table>
-<div class="d"></div>
-<table style="font-size:8px; border-collapse: collapse; width: 100%">
-${lastTransaction.items.map((item) => `<tr>
-  <td style="width:7px; padding-right: 5px; text-align: left">${item.quantity}</td>
-  <td style="width:30px; padding-right: 5px">${item.variant.unit}</td>
-  <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.product.name.toLowerCase()}</td>
-  <td class="r" style="padding-left: 10px">${formatCurrency(item.variant.price * item.quantity)}</td>
-</tr>`).join("")}
-</table>
-<div class="d"></div>
-<table>
-  ${(() => {
-    const subtotal = lastTransaction.items.reduce((sum, item) => sum + (item.variant.price * item.quantity), 0);
-    return `
-  <tr><td>Subtotal</td><td class="r">${formatCurrency(subtotal)}</td></tr>
-  ${lastTransaction.discount && lastTransaction.discount > 0 ? `<tr><td style="color:red">Diskon</td><td class="r" style="color:red">-${formatCurrency(lastTransaction.discount)}</td></tr>` : ""}
-  ${lastTransaction.serviceCharge && lastTransaction.serviceCharge > 0 ? `<tr><td>Biaya Layanan</td><td class="r">+${formatCurrency(lastTransaction.serviceCharge)}</td></tr>` : ""}
-  ${lastTransaction.ppn && lastTransaction.ppn > 0 ? `<tr><td>PPN (${lastTransaction.ppnPercentage}%)</td><td class="r">+${formatCurrency(lastTransaction.ppn)}</td></tr>` : ""}
-  <tr class="b"><td>TOTAL</td><td class="r">${formatCurrency(lastTransaction.total)}</td></tr>`;
-  })()}
-</table>
-<div class="d"></div>
-<table style="font-size:8px">
-  <tr><td>Metode Pembayaran</td><td class="r">${lastTransaction.paymentMethod.toUpperCase()}</td></tr>
-</table>
-<div class="d"></div>
-<div class="c" style="font-size:8px;margin-top:10px">${storeFooter}</div>
-${showQRCode && qrCodeLink ? `<div id="qrcode"></div>` : ""}
-<script>
-  window.onload=function(){
-    ${showQRCode && qrCodeLink ? `new QRCode(document.getElementById("qrcode"), {text: "${qrCodeLink}", width: 70, height: 70});` : ""}
-    window.print();
-  };
-</script>
-</body></html>`;
+    if (!printWindow) {
+      toast({
+        title: "Gagal Print",
+        description: "Popup diblokir oleh browser",
+        variant: "destructive",
+      });
+      return;
+    }
     printWindow.document.write(html);
     printWindow.document.close();
   };
 
   if (lastTransaction) {
     return (
-      <div className="max-w-2xl mx-auto flex flex-col gap-4">
+      <div className="max-w-2xl mx-auto flex flex-col gap-4 mt-24">
         <div className="bg-gradient-to-br from-primary to-emerald-600 rounded-2xl p-6 text-white text-center">
           <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
             <ShoppingBag className="h-8 w-8" />

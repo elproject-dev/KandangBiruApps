@@ -73,6 +73,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "@capacitor/browser": "^8.0.3",
     "@capacitor/cli": "^8.3.0",
     "@capacitor/core": "^8.3.0",
     "@capgo/capacitor-printer": "^8.0.12",
