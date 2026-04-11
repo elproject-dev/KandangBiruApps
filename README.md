@@ -35,6 +35,7 @@ Aplikasi mobile manajemen toko pakan ternak dengan fitur lengkap untuk penjualan
 Sebelum memulai, pastikan Anda sudah menginstall:
 
 - **Node.js** (v18 atau lebih tinggi)
+- **pnpm** - Package manager (install dengan `npm install -g pnpm`)
 - **Java JDK** (v21 atau lebih tinggi) - untuk build Android
 - **Android Studio** - untuk build APK
 - **Git**
@@ -49,7 +50,7 @@ cd mobile
 
 2. Install dependencies:
 ```bash
-npm install
+pnpm install
 ```
 
 3. Setup Supabase:
@@ -61,18 +62,18 @@ npm install
 
 ### Jalankan Development Server (Web)
 ```bash
-npm run dev
+pnpm dev
 ```
 Akses di http://localhost:5173
 
 ### Build untuk Production
 ```bash
-npm run build
+pnpm build
 ```
 
 ### Sync ke Android
 ```bash
-npx cap sync android
+pnpm cap sync android
 ```
 
 ### Build APK Android
@@ -129,12 +130,12 @@ mobile/
 
 | Command | Deskripsi |
 |---------|-----------|
-| `npm run dev` | Jalankan development server |
-| `npm run build` | Build untuk production |
-| `npm run serve` | Preview build production |
-| `npm run typecheck` | Cek TypeScript |
-| `npx cap sync android` | Sync web assets ke Android |
-| `npx cap open android` | Buka project di Android Studio |
+| `pnpm dev` | Jalankan development server |
+| `pnpm build` | Build untuk production |
+| `pnpm serve` | Preview build production |
+| `pnpm typecheck` | Cek TypeScript |
+| `pnpm cap sync android` | Sync web assets ke Android |
+| `pnpm cap open android` | Buka project di Android Studio |
 
 ## 🔧 Environment Variables
 
