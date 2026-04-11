@@ -66,7 +66,7 @@ cd mobile
 ```bash
 pnpm install
 ```
-<img src="screenshots/print.png" alt="Cetak Struk" width="200"/>
+
 3. Setup Supabase:
 - Buat project baru di [Supabase](https://supabase.com)
 - Jalankan SQL migration dari file `supabase-setup.sql`
@@ -152,6 +152,8 @@ mobile/
 | `pnpm cap open android` | Buka project di Android Studio |
 
 ## 🔧 Environment Variables
+
+<img src="screenshots/print.png" alt="Cetak Struk" width="200"/>
 
 Buat file `.env` di root project:
 
