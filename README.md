@@ -38,7 +38,6 @@ Berikut adalah tampilan aplikasi KandangBiru:
   <img src="screenshots/dashboard.png" alt="Dashboard" width="200"/>
   <img src="screenshots/pos.png" alt="Keranjang" width="200"/>
   <img src="screenshots/riwayat.png" alt="Riwayat" width="200"/>
-  <img src="screenshots/print.png" alt="Cetak Struk" width="200"/>
   <img src="screenshots/setting.png" alt="Setting" width="200"/>
   <img src="screenshots/pengeluaran.png" alt="Pengeluaran" width="200"/>
   <img src="screenshots/produk.png" alt="Produk" width="200"/>
@@ -72,7 +71,7 @@ cd mobile
 ```bash
 pnpm install
 ```
-
+<img src="screenshots/print.png" alt="Cetak Struk" width="200"/>
 3. Setup Supabase:
 - Buat project baru di [Supabase](https://supabase.com)
 - Jalankan SQL migration dari file `supabase-setup.sql`
