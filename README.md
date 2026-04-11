@@ -43,13 +43,8 @@ Berikut adalah tampilan aplikasi KandangBiru:
   <img src="screenshots/produk.png" alt="Produk" width="200"/>
 </div>
 
-**Cara menambahkan screenshot:**
-1. Buat folder `screenshots` di root project
-2. Ambil screenshot dari device atau emulator
-3. Simpan gambar dengan nama yang deskriptif (misal: `dashboard.png`, `cart.png`)
-4. Update section ini dengan path gambar yang sesuai
 
-## 🛠️ Prerequisites
+## 🛠️ Requirements
 
 Sebelum memulai, pastikan Anda sudah menginstall:
 
