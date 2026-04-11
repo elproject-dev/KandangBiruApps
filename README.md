@@ -36,15 +36,15 @@ Berikut adalah tampilan aplikasi KandangBiru:
 
 <div align="center">
   <img src="screenshots/dashboard.png" alt="Dashboard" width="200"/>
+  <img src="screenshots/pos.png" alt="Keranjang" width="200"/>
+  <img src="screenshots/riwayat.png" alt="Riwayat" width="200"/>
+  <img src="screenshots/setting.png" alt="Setting" width="200"/>
+  <img src="screenshots/pengeluaran.png" alt="Pengeluaran" width="200"/>
+  <img src="screenshots/produk.png" alt="Produk" width="200"/>
 </div>
 
-**Cara menambahkan screenshot:**
-1. Buat folder `screenshots` di root project
-2. Ambil screenshot dari device atau emulator
-3. Simpan gambar dengan nama yang deskriptif (misal: `dashboard.png`, `cart.png`)
-4. Update section ini dengan path gambar yang sesuai
 
-## 🛠️ Prerequisites
+## 🛠️ Requirements
 
 Sebelum memulai, pastikan Anda sudah menginstall:
 
@@ -159,6 +159,8 @@ mobile/
 | `pnpm cap open android` | Buka project di Android Studio |
 
 ## 🔧 Environment Variables
+
+<img src="screenshots/print.png" alt="Cetak Struk" width="200"/>
 
 Buat file `.env` di root project:
 
