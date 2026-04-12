@@ -87,6 +87,7 @@ export default function Products() {
   const [editingVariant, setEditingVariant] = useState<string | null>(null);
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [importResult, setImportResult] = useState<string | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -247,6 +248,9 @@ export default function Products() {
   const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setImportLoading(true);
+    setImportResult(null);
+    setImportErrors([]);
     try {
       const { read, utils } = await import("xlsx");
       const data = await file.arrayBuffer();
@@ -288,6 +292,8 @@ export default function Products() {
       toast({ title: "Import Selesai", description: `${result.imported} produk diimport` });
     } catch (err) {
       toast({ title: "Gagal membaca file", description: "Pastikan file format .xlsx", variant: "destructive" });
+    } finally {
+      setImportLoading(false);
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -466,13 +472,22 @@ export default function Products() {
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" className="gap-1.5 text-xs rounded-lg py-2" onClick={handleDownloadTemplate}>
+              <Button variant="outline" className="gap-1.5 text-xs rounded-lg py-2" onClick={handleDownloadTemplate} disabled={importLoading}>
                 <Download className="h-3.5 w-3.5" />
                 Unduh Template
               </Button>
-              <Button className="gap-1.5 text-xs rounded-lg py-2" onClick={() => fileInputRef.current?.click()}>
-                <Upload className="h-3.5 w-3.5" />
-                Pilih File .xlsx
+              <Button className="gap-1.5 text-xs rounded-lg py-2" onClick={() => fileInputRef.current?.click()} disabled={importLoading}>
+                {importLoading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Upload...
+                  </span>
+                ) : (
+                  <>
+                    <Upload className="h-3.5 w-3.5" />
+                    Pilih File .xlsx
+                  </>
+                )}
               </Button>
             </div>
 
@@ -483,6 +498,15 @@ export default function Products() {
               className="hidden"
               onChange={handleFileImport}
             />
+
+            {importLoading && (
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-xs space-y-2">
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="font-medium text-primary">Harap menunggu, proses upload memerlukan waktu beberapa saat...</span>
+                </div>
+              </div>
+            )}
 
             {importResult && (
               <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 text-xs text-emerald-700 font-medium">

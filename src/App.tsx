@@ -35,6 +35,7 @@ import Guide from "@/pages/guide";
 import Support from "@/pages/support";
 import LoginPage from "@/pages/login";
 import NotFound from "@/pages/not-found";
+import StockConversion from "@/pages/stock-conversion";
 
 const queryClient = new QueryClient();
 
@@ -201,6 +202,7 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
     "/guide": "Panduan Pengguna",
     "/support": "Hubungi Support",
     "/settings": "Setting",
+    "/stock-conversion": "Konversi Stok",
   };
   return (
     <header className="h-14 bg-card border-b border-border flex items-center px-4 gap-3 no-print lg:hidden sticky top-0 z-30">
@@ -316,6 +318,7 @@ function PageTitle() {
     "/guide": "Panduan Pengguna",
     "/support": "Hubungi Support",
     "/settings": "Setting",
+    "/stock-conversion": "Konversi Stok",
   };
   return <h2 className="font-bold text-base">{titles[location] ?? "Kandang Biru Bantul"}</h2>;
 }
@@ -331,6 +334,7 @@ function Router() {
       <Route path="/guide" component={Guide} />
       <Route path="/support" component={Support} />
       <Route path="/settings" component={SettingsPage} />
+      <Route path="/stock-conversion" component={StockConversion} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -70,15 +70,15 @@ export default function Support() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <div className="flex justify-between text-sm">
+          <div className="flex justify-between text-xs sm:text-sm">
             <span className="text-muted-foreground">Versi</span>
             <span className="font-medium">1.0.0</span>
           </div>
-          <div className="flex justify-between text-sm">
+          <div className="flex justify-between text-xs sm:text-sm">
             <span className="text-muted-foreground">Nama Aplikasi</span>
             <span className="font-medium">Kandang Biru</span>
           </div>
-          <div className="flex justify-between text-sm">
+          <div className="flex justify-between text-xs sm:text-sm">
             <span className="text-muted-foreground">Pengembang</span>
             <span className="font-medium">EL PROJECT DEVELOPMENT</span>
           </div>

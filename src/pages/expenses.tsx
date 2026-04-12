@@ -20,6 +20,7 @@ export default function Expenses() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [filterPeriod, setFilterPeriod] = useState<"all" | "today" | "month">("all");
 
   // Load expenses from Supabase on mount
   useEffect(() => {
@@ -54,6 +55,26 @@ export default function Expenses() {
   }, [isDialogOpen]);
 
   const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+  const filteredExpenses = expenses.filter((expense) => {
+    const expenseDate = new Date(expense.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (filterPeriod === "today") {
+      const expenseDay = new Date(expenseDate);
+      expenseDay.setHours(0, 0, 0, 0);
+      return expenseDay.getTime() === today.getTime();
+    } else if (filterPeriod === "month") {
+      return (
+        expenseDate.getMonth() === today.getMonth() &&
+        expenseDate.getFullYear() === today.getFullYear()
+      );
+    }
+    return true;
+  });
+
+  const filteredTotal = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
   const handleAddExpense = async () => {
     if (!description.trim() || !amount || !category) return;
@@ -117,8 +138,8 @@ export default function Expenses() {
             </div>
           ) : (
             <>
-              <p className="text-2xl font-bold text-destructive transition-all duration-300">{formatCurrency(totalExpenses)}</p>
-              <p className="text-xs text-muted-foreground mt-1">{expenses.length} catatan pengeluaran</p>
+              <p className="text-2xl font-bold text-destructive transition-all duration-300">{formatCurrency(filteredTotal)}</p>
+              <p className="text-xs text-muted-foreground mt-1">{filteredExpenses.length} catatan pengeluaran</p>
             </>
           )}
 
@@ -221,7 +242,19 @@ export default function Expenses() {
       {/* Expenses List */}
       <Card className="border-card-border shadow-sm hover:shadow-md transition-shadow duration-300">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Riwayat Pengeluaran</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Riwayat Pengeluaran</CardTitle>
+            <Select value={filterPeriod} onValueChange={(value: "all" | "today" | "month") => setFilterPeriod(value)}>
+              <SelectTrigger className="w-24 h-7 text-[10px] sm:w-32 sm:h-8 sm:text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua</SelectItem>
+                <SelectItem value="today">Hari Ini</SelectItem>
+                <SelectItem value="month">Bulan Ini</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -229,17 +262,25 @@ export default function Expenses() {
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
               <p>Memuat data pengeluaran...</p>
             </div>
-          ) : expenses.length === 0 ? (
+          ) : filteredExpenses.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <p className="font-medium">Belum ada pengeluaran</p>
-              <p className="text-sm mt-1 mb-4">Tambahkan pengeluaran pertama Anda</p>
-              <Button size="sm" onClick={() => setIsDialogOpen(true)}>
-                Catat
-              </Button>
+              <p className="font-medium">
+                {filterPeriod === "today" ? "Tidak ada pengeluaran hari ini" :
+                 filterPeriod === "month" ? "Tidak ada pengeluaran bulan ini" :
+                 "Belum ada pengeluaran"}
+              </p>
+              <p className="text-sm mt-1 mb-4">
+                {filterPeriod === "all" ? "Tambahkan pengeluaran pertama Anda" : "Coba ubah filter"}
+              </p>
+              {filterPeriod === "all" && (
+                <Button size="sm" onClick={() => setIsDialogOpen(true)}>
+                  Catat
+                </Button>
+              )}
             </div>
           ) : (
             <div className="space-y-2">
-              {expenses.map((expense, index) => (
+              {filteredExpenses.map((expense, index) => (
                 <div
                   key={expense.id}
                   className="flex items-center justify-between p-3 rounded-lg border border-border/60 hover:bg-muted/40 hover:shadow-md hover:scale-[1.01] transition-all duration-200 cursor-default"

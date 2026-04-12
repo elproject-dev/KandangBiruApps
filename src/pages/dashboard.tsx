@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Link } from "wouter";
 import {
   TrendingUp, Package, ShoppingCart, AlertTriangle,
-  ArrowRight, Clock, Leaf, CheckCircle, Calendar, DollarSign, Download, Loader2,
+  ArrowRight, Clock, Leaf, CheckCircle, Calendar, DollarSign, Download, Loader2, RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -361,14 +361,19 @@ export default function Dashboard() {
             {new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </p>
           <div className="flex flex-wrap gap-3 mt-4 w-full">
-            <Link href="/catalog" className="flex-1 min-w-[140px]">
-              <Button size="sm" className="w-full bg-white text-primary hover:bg-white/90 rounded-full gap-2 font-semibold no-print">
+            <Link href="/catalog" className="flex-1 min-w-[120px]">
+              <Button size="sm" className="w-full bg-white text-primary hover:bg-white/90 rounded-full gap-2 font-semibold no-print text-xs">
                 <ShoppingCart className="h-3.5 w-3.5" />Mulai Transaksi
               </Button>
             </Link>
-            <Link href="/products" className="flex-1 min-w-[140px]">
-              <Button size="sm" variant="ghost" className="w-full text-white hover:bg-white/20 rounded-full gap-2 border border-white/30 no-print">
+            <Link href="/products" className="flex-1 min-w-[120px]">
+              <Button size="sm" variant="ghost" className="w-full text-white hover:bg-white/20 rounded-full gap-2 border border-white/30 no-print text-xs">
                 <Package className="h-3.5 w-3.5" />Kelola Stok
+              </Button>
+            </Link>
+            <Link href="/stock-conversion" className="flex-1 min-w-[120px] hidden lg:flex">
+              <Button size="sm" variant="ghost" className="w-full text-white hover:bg-white/20 rounded-full gap-2 border border-white/30 no-print text-xs">
+                <RefreshCw className="h-3.5 w-3.5" />Konversi Stok
               </Button>
             </Link>
           </div>
@@ -496,6 +501,16 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      {/* Mobile Stock Conversion Button */}
+      <div className="lg:hidden">
+        <Link href="/stock-conversion">
+          <Button className="w-full gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Konversi Stok
+          </Button>
+        </Link>
       </div>
 
       {/* Categories, Expenses and Report Grid */}

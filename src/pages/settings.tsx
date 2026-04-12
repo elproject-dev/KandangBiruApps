@@ -1,4 +1,4 @@
-import { Settings as SettingsIcon, Type, Moon, Sun, Plus, Trash2, AlertCircle, Store, QrCode, Package, Tag, Loader2, LogOut } from "lucide-react";
+import { Settings as SettingsIcon, Type, Moon, Sun, Plus, Trash2, AlertCircle, Store, QrCode, Package, Tag, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,6 @@ const themes = [
 export default function SettingsPage() {
   const { fontSize, setFontSize } = useFont();
   const { theme, setTheme } = useTheme();
-  const { signOut } = useAuth();
   const { categories, addCategory, deleteCategory } = useCategories();
   const [newCategory, setNewCategory] = useState("");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -47,7 +46,8 @@ export default function SettingsPage() {
   const [enablePPN, setEnablePPN] = useState(false);
   const [defaultPPN, setDefaultPPN] = useState("");
   const [loading, setLoading] = useState(true);
-  const [logoutLoading, setLogoutLoading] = useState(false);
+  const [resetProductsLoading, setResetProductsLoading] = useState(false);
+  const [clearTransactionsLoading, setClearTransactionsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { toast } = useToast();
 
@@ -117,10 +117,13 @@ export default function SettingsPage() {
     await deleteCategory(id);
   };
 
-  const handleClearTransactions = async () => {
+  const handleClearTransactions = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    setClearTransactionsLoading(true);
     try {
       await clearAllTransactions();
       setShowClearConfirm(false);
+      setDeleteConfirmText("");
       toast({
         title: "Berhasil",
         description: "Semua riwayat transaksi telah dihapus",
@@ -132,16 +135,21 @@ export default function SettingsPage() {
         description: "Gagal menghapus riwayat transaksi",
         variant: "destructive",
       });
+    } finally {
+      setClearTransactionsLoading(false);
     }
   };
 
-  const handleResetProducts = async () => {
+  const handleResetProducts = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    setResetProductsLoading(true);
     try {
       const products = await getProducts();
       for (const product of products) {
         await deleteProduct(product.id);
       }
       setShowResetProductsConfirm(false);
+      setResetConfirmText("");
       toast({
         title: "Berhasil",
         description: "Semua data produk telah dihapus",
@@ -153,6 +161,8 @@ export default function SettingsPage() {
         description: "Gagal menghapus produk",
         variant: "destructive",
       });
+    } finally {
+      setResetProductsLoading(false);
     }
   };
 
@@ -319,18 +329,6 @@ export default function SettingsPage() {
         description: "Gagal menyimpan pengaturan PPN",
         variant: "destructive",
       });
-    }
-  };
-
-  const handleLogout = async () => {
-    setLogoutLoading(true);
-    try {
-      await signOut();
-      toast({ title: "Berhasil", description: "Anda telah logout" });
-    } catch {
-      toast({ title: "Error", description: "Gagal logout", variant: "destructive" });
-    } finally {
-      setLogoutLoading(false);
     }
   };
 
@@ -597,29 +595,41 @@ export default function SettingsPage() {
             <AlertDialogContent className="rounded-xl">
               <AlertDialogHeader>
                 <AlertDialogTitle>Hapus Semua Riwayat?</AlertDialogTitle>
-                <AlertDialogDescription className="space-y-3">
-                  <p>Tindakan ini akan menghapus seluruh data transaksi secara permanen dan tidak dapat dibatalkan.</p>
-                  <div className="space-y-1.5 text-foreground">
-                    <p className="text-xs font-medium">Ketik <span className="font-bold select-none">HAPUS RIWAYAT</span> untuk konfirmasi:</p>
-                    <Input 
-                      placeholder="Ketik konfirmasi..." 
-                      value={deleteConfirmText}
-                      onChange={(e) => setDeleteConfirmText(e.target.value)}
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                </AlertDialogDescription>
+                {!clearTransactionsLoading ? (
+                  <AlertDialogDescription className="space-y-3">
+                    <p>Tindakan ini akan menghapus seluruh data transaksi secara permanen dan tidak dapat dibatalkan.</p>
+                    <div className="space-y-1.5 text-foreground">
+                      <p className="text-xs font-medium">Ketik <span className="font-bold select-none">HAPUS RIWAYAT</span> untuk konfirmasi:</p>
+                      <Input
+                        placeholder="Ketik konfirmasi..."
+                        value={deleteConfirmText}
+                        onChange={(e) => setDeleteConfirmText(e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </AlertDialogDescription>
+                ) : null}
               </AlertDialogHeader>
-              <AlertDialogFooter className="flex gap-2">
-                <AlertDialogCancel onClick={() => setDeleteConfirmText("")} className="flex-1 mt-0">Batal</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleClearTransactions}
-                  disabled={deleteConfirmText !== "HAPUS RIWAYAT"}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 flex-1"
-                >
-                  Ya, Hapus
-                </AlertDialogAction>
-              </AlertDialogFooter>
+
+              {clearTransactionsLoading ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-6">
+                  <Loader2 className="h-8 w-8 animate-spin text-destructive" />
+                  <p className="text-sm font-medium text-destructive text-center">Harap menunggu,<br/>proses hapus riwayat memerlukan waktu beberapa saat...</p>
+                </div>
+              ) : null}
+
+              {!clearTransactionsLoading && (
+                <AlertDialogFooter className="flex gap-2">
+                  <AlertDialogCancel onClick={() => setDeleteConfirmText("")} className="flex-1 mt-0">Batal</AlertDialogCancel>
+                  <Button
+                    onClick={handleClearTransactions}
+                    disabled={deleteConfirmText !== "HAPUS RIWAYAT"}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 flex-1"
+                  >
+                    Ya, Hapus
+                  </Button>
+                </AlertDialogFooter>
+              )}
             </AlertDialogContent>
           </AlertDialog>
         </CardContent>
@@ -646,60 +656,43 @@ export default function SettingsPage() {
             <AlertDialogContent className="rounded-xl">
               <AlertDialogHeader>
                 <AlertDialogTitle>Reset Semua Produk?</AlertDialogTitle>
-                <AlertDialogDescription className="space-y-3">
-                  <p>Seluruh data produk akan dihapus dari sistem. Tindakan ini tidak dapat dibatalkan.</p>
-                  <div className="space-y-1.5 text-foreground">
-                    <p className="text-xs font-medium">Ketik <span className="font-bold select-none">HAPUS PRODUK</span> untuk konfirmasi:</p>
-                    <Input 
-                      placeholder="Ketik konfirmasi..." 
-                      value={resetConfirmText}
-                      onChange={(e) => setResetConfirmText(e.target.value)}
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                </AlertDialogDescription>
+                {!resetProductsLoading ? (
+                  <AlertDialogDescription className="space-y-3">
+                    <p>Seluruh data produk akan dihapus dari sistem. Tindakan ini tidak dapat dibatalkan.</p>
+                    <div className="space-y-1.5 text-foreground">
+                      <p className="text-xs font-medium">Ketik <span className="font-bold select-none">HAPUS PRODUK</span> untuk konfirmasi:</p>
+                      <Input
+                        placeholder="Ketik konfirmasi..."
+                        value={resetConfirmText}
+                        onChange={(e) => setResetConfirmText(e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </AlertDialogDescription>
+                ) : null}
               </AlertDialogHeader>
-              <AlertDialogFooter className="flex gap-2">
-                <AlertDialogCancel onClick={() => setResetConfirmText("")} className="flex-1 mt-0">Batal</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleResetProducts}
-                  disabled={resetConfirmText !== "HAPUS PRODUK"}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 flex-1"
-                >
-                  Ya, Hapus
-                </AlertDialogAction>
-              </AlertDialogFooter>
+
+              {resetProductsLoading ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-6">
+                  <Loader2 className="h-8 w-8 animate-spin text-destructive" />
+                  <p className="text-sm font-medium text-destructive text-center">Harap menunggu,<br/>proses hapus produk memerlukan waktu beberapa saat...</p>
+                </div>
+              ) : null}
+
+              {!resetProductsLoading && (
+                <AlertDialogFooter className="flex gap-2">
+                  <AlertDialogCancel onClick={() => setResetConfirmText("")} className="flex-1 mt-0">Batal</AlertDialogCancel>
+                  <Button
+                    onClick={handleResetProducts}
+                    disabled={resetConfirmText !== "HAPUS PRODUK"}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 flex-1"
+                  >
+                    Ya, Hapus
+                  </Button>
+                </AlertDialogFooter>
+              )}
             </AlertDialogContent>
           </AlertDialog>
-        </CardContent>
-      </Card>
-
-      <Card className="border-card-border shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <LogOut className="h-4 w-4 text-primary" />
-            Akun
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={handleLogout}
-            disabled={logoutLoading}
-          >
-            {logoutLoading ? (
-              <span className="inline-flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Keluar...
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-2">
-                <LogOut className="h-4 w-4" />
-                Keluar
-              </span>
-            )}
-          </Button>
         </CardContent>
       </Card>
     </div>
