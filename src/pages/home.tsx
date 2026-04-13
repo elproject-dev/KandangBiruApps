@@ -19,10 +19,10 @@ import {
   getCategoryLabel,
   getCategoryColor,
   formatCurrency,
-  type FeedProduct,
   type ProductVariant,
   type MainCategory,
 } from "@/lib/store";
+import { type FeedProduct } from "@/lib/supabase-store";
 
 const CATEGORY_FILTER: { value: MainCategory | "all"; label: string }[] = [
   { value: "all", label: "Semua" },
@@ -99,7 +99,7 @@ function ProductCard({ product }: { product: FeedProduct }) {
               >
                 <div className="text-left min-w-0">
                   <p className="font-medium text-sm truncate">{selectedVariant.label}</p>
-                  <p className="text-xs text-primary font-bold">{formatCurrency(selectedVariant.price)}</p>
+                  <p className="text-xs text-primary font-bold">{formatCurrency(selectedVariant.sellingPrice)}</p>
                 </div>
                 <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
               </button>
@@ -121,7 +121,7 @@ function ProductCard({ product }: { product: FeedProduct }) {
                   >
                     <div>
                       <p className="text-sm font-medium">{variant.label}</p>
-                      <p className="text-xs text-primary font-bold">{formatCurrency(variant.price)}</p>
+                      <p className="text-xs text-primary font-bold">{formatCurrency(variant.sellingPrice)}</p>
                     </div>
                     <div className="flex items-center gap-1.5 ml-2">
                       {inCart && (
@@ -140,7 +140,7 @@ function ProductCard({ product }: { product: FeedProduct }) {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-base font-bold text-primary" data-testid={`text-price-${product.id}`}>
-              {formatCurrency(selectedVariant.price)}
+              {formatCurrency(selectedVariant.sellingPrice)}
             </p>
             <p className="text-xs text-muted-foreground">Stok: {product.stock}</p>
           </div>
@@ -189,7 +189,7 @@ export default function Catalog() {
   const { items } = useCart();
   const products = getProducts();
 
-  const cartTotal = items.reduce((s, i) => s + i.variant.price * i.quantity, 0);
+  const cartTotal = items.reduce((s, i) => s + i.variant.sellingPrice * i.quantity, 0);
   const cartCount = items.reduce((s, i) => s + i.quantity, 0);
 
   const filteredProducts = useMemo(() => {

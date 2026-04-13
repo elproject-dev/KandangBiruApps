@@ -43,7 +43,8 @@ export function convertToOns(quantity: number, unit: string): number {
 export interface ProductVariant {
   id: string;
   label: string;
-  price: number;
+  originalPrice: number; // Harga asli (modal)
+  sellingPrice: number; // Harga jual
   unit: string;
 }
 
@@ -183,6 +184,20 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+export function formatCurrencyInput(value: string): string {
+  // Remove non-numeric characters except comma
+  const cleaned = value.replace(/[^\d,]/g, '');
+  // Format with thousand separators
+  const parts = cleaned.split(',');
+  const numberPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return numberPart + (parts.length > 1 ? ',' + parts[1] : '');
+}
+
+export function parseCurrencyInput(value: string): number {
+  // Remove all non-numeric characters
+  return Number(value.replace(/[^\d]/g, '')) || 0;
+}
+
 export function getCategoryLabel(category: string): string {
   return CATEGORY_LABELS[category as MainCategory] ?? category;
 }
@@ -201,7 +216,8 @@ export function importProductsFromExcel(rows: Record<string, string>[]): { impor
 
     const name = (row["Nama Produk"] || row["nama produk"] || row["nama"] || "").toString().trim();
     const variantLabel = (row["Varian"] || row["varian"] || row["Label"] || row["label"] || "").toString().trim();
-    const priceRaw = (row["Harga"] || row["harga"] || row["Price"] || "").toString().replace(/[^\d]/g, "");
+    const originalPriceRaw = (row["Harga Asli"] || row["harga asli"] || row["Harga Modal"] || row["harga modal"] || "").toString().replace(/[^\d]/g, "");
+    const sellingPriceRaw = (row["Harga Jual"] || row["harga jual"] || row["Harga"] || row["harga"] || row["Price"] || "").toString().replace(/[^\d]/g, "");
     const unit = (row["Satuan"] || row["satuan"] || row["Unit"] || row["unit"] || "").toString().trim();
     const description = (row["Deskripsi"] || row["deskripsi"] || "").toString().trim();
     const stockRaw = (row["Stok"] || row["stok"] || row["Stock"] || "").toString().replace(/[^\d]/g, "");
@@ -209,9 +225,10 @@ export function importProductsFromExcel(rows: Record<string, string>[]): { impor
 
     if (!name) { errors.push(`Baris ${rowNum}: Nama produk kosong`); continue; }
     if (!variantLabel) { errors.push(`Baris ${rowNum}: Label varian kosong`); continue; }
-    if (!priceRaw) { errors.push(`Baris ${rowNum}: Harga kosong`); continue; }
+    if (!sellingPriceRaw) { errors.push(`Baris ${rowNum}: Harga jual kosong`); continue; }
 
-    const price = parseInt(priceRaw, 10);
+    const originalPrice = originalPriceRaw ? parseInt(originalPriceRaw, 10) : 0;
+    const sellingPrice = parseInt(sellingPriceRaw, 10);
     const stock = stockRaw ? parseInt(stockRaw, 10) : 0;
 
     const category = categoryRaw?.trim() || "Lainnya";
@@ -235,7 +252,7 @@ export function importProductsFromExcel(rows: Record<string, string>[]): { impor
 
     const variantId = `${product.id}_v${product.variants.length + 1}`;
     if (!product.variants.find((v) => v.label.toLowerCase() === variantLabel.toLowerCase())) {
-      product.variants.push({ id: variantId, label: variantLabel, price, unit });
+      product.variants.push({ id: variantId, label: variantLabel, originalPrice: originalPrice || sellingPrice, sellingPrice, unit });
     }
   }
 
@@ -246,13 +263,13 @@ export function importProductsFromExcel(rows: Record<string, string>[]): { impor
 
 export function generateExcelTemplate(): { headers: string[]; sampleRows: string[][] } {
   return {
-    headers: ["Nama Produk", "Deskripsi", "Kategori", "Stok", "Varian", "Harga", "Satuan"],
+    headers: ["Nama Produk", "Deskripsi", "Kategori", "Stok", "Varian", "Harga Asli", "Harga Jual", "Satuan"],
     sampleRows: [
-      ["Jagung Giling", "Jagung giling halus", "bijian", "500", "1 Ons", "500", "ons"],
-      ["Jagung Giling", "", "", "", "1 Kg", "4500", "kg"],
-      ["Jagung Giling", "", "", "", "1 Sak (50kg)", "195000", "sak"],
-      ["Dedak Padi", "Dedak padi berkualitas", "bijian", "300", "1 Kg", "2800", "kg"],
-      ["Dedak Padi", "", "", "", "1 Sak", "120000", "sak"],
+      ["Jagung Giling", "Jagung giling halus", "bijian", "500", "1 Ons", "450", "500", "ons"],
+      ["Jagung Giling", "", "", "", "1 Kg", "4000", "4500", "kg"],
+      ["Jagung Giling", "", "", "", "1 Sak (50kg)", "180000", "195000", "sak"],
+      ["Dedak Padi", "Dedak padi berkualitas", "bijian", "300", "1 Kg", "2500", "2800", "kg"],
+      ["Dedak Padi", "", "", "", "1 Sak", "110000", "120000", "sak"],
     ],
   };
 }

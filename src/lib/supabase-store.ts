@@ -4,7 +4,8 @@ import { supabase } from './supabase';
 export interface ProductVariant {
   id: string;
   label: string;
-  price: number;
+  originalPrice: number; // Harga asli (modal)
+  sellingPrice: number; // Harga jual
   unit: string;
 }
 
@@ -27,7 +28,8 @@ export interface Transaction {
       id: string;
       name: string;
       unit: string;
-      price: number;
+      originalPrice: number;
+      sellingPrice: number;
       stock: number;
     };
     quantity: number;
@@ -72,11 +74,42 @@ export interface Expense {
 }
 
 function normalizeVariants(input: unknown): ProductVariant[] {
-  if (Array.isArray(input)) return input as ProductVariant[];
+  const normalizeArray = (arr: any[]): ProductVariant[] => {
+    return arr
+      .filter(Boolean)
+      .map((v: any) => {
+        const legacyPrice = v?.price;
+        const legacyPriceNumber = typeof legacyPrice === 'number' ? legacyPrice : Number(legacyPrice);
+
+        const originalPriceRaw = v?.originalPrice;
+        const sellingPriceRaw = v?.sellingPrice;
+
+        const originalPrice =
+          typeof originalPriceRaw === 'number'
+            ? originalPriceRaw
+            : Number(originalPriceRaw ?? (Number.isFinite(legacyPriceNumber) ? legacyPriceNumber : 0)) || 0;
+
+        const sellingPrice =
+          typeof sellingPriceRaw === 'number'
+            ? sellingPriceRaw
+            : Number(sellingPriceRaw ?? (Number.isFinite(legacyPriceNumber) ? legacyPriceNumber : 0)) || 0;
+
+        return {
+          id: String(v?.id ?? ''),
+          label: String(v?.label ?? ''),
+          unit: String(v?.unit ?? 'unit'),
+          originalPrice,
+          sellingPrice,
+        };
+      })
+      .filter((v) => v.id && v.label);
+  };
+
+  if (Array.isArray(input)) return normalizeArray(input);
   if (typeof input === 'string') {
     try {
       const parsed = JSON.parse(input);
-      return Array.isArray(parsed) ? (parsed as ProductVariant[]) : [];
+      return Array.isArray(parsed) ? normalizeArray(parsed) : [];
     } catch {
       return [];
     }
@@ -93,7 +126,7 @@ function normalizeProduct(row: any): FeedProduct {
     category: row.category ?? '',
     description: row.description ?? '',
     stock: stock,
-    unit: row.unit ?? 'ons', // Default to 'ons' if not in database
+    unit: row.unit ?? 'ons',
     variants: normalizeVariants(row.variants),
   };
 }
@@ -117,6 +150,7 @@ export async function addProduct(product: Omit<FeedProduct, 'id'>): Promise<Feed
       category: product.category,
       description: product.description,
       stock: product.stock,
+      unit: product.unit,
       variants: product.variants,
     })
     .select('*')

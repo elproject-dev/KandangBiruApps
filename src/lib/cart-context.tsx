@@ -6,7 +6,7 @@ import { cartItemKey } from "./store";
 interface CartContextType {
   items: CartItem[];
   addToCart: (product: FeedProduct, variant: ProductVariant, quantity: number) => void;
-  addManualItem: (name: string, price: number, quantity: number, unit: string) => void;
+  addManualItem: (name: string, originalPrice: number, sellingPrice: number, quantity: number, unit: string) => void;
   removeFromCart: (productId: string, variantId: string) => void;
   updateQuantity: (productId: string, variantId: string, quantity: number) => void;
   clearCart: () => void;
@@ -34,13 +34,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const addManualItem = useCallback((name: string, price: number, quantity: number, unit: string) => {
+  const addManualItem = useCallback((name: string, originalPrice: number, sellingPrice: number, quantity: number, unit: string) => {
     const productId = `manual-${Date.now()}`;
     const variantId = `manual-variant-${Date.now()}`;
     const product: FeedProduct = {
       id: productId,
       name,
-      category: "lainnya",
+      category: "Lainnya",
       description: "",
       stock: 9999,
       unit,
@@ -49,7 +49,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const variant: ProductVariant = {
       id: variantId,
       label: unit,
-      price,
+      originalPrice,
+      sellingPrice,
       unit,
     };
     addToCart(product, variant, quantity);
@@ -75,7 +76,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = useCallback(() => setItems([]), []);
 
-  const total = items.reduce((sum, item) => sum + item.variant.price * item.quantity, 0);
+  const total = items.reduce((sum, item) => sum + item.variant.sellingPrice * item.quantity, 0);
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (

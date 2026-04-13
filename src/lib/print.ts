@@ -10,7 +10,7 @@ export interface PrintTemplateData {
     quantity: number;
     variant: {
       unit: string;
-      price: number;
+      sellingPrice: number;
     };
     product: {
       name: string;
@@ -91,13 +91,13 @@ ${data.items.map((item) => `<tr>
   <td style="width:7px; padding-right: 5px; text-align: left">${item.quantity}</td>
   <td style="width:30px; padding-right: 5px">${item.variant.unit}</td>
   <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.product.name.toLowerCase()}</td>
-  <td class="r" style="padding-left: 10px">${formatCurrency(item.variant.price * item.quantity)}</td>
+  <td class="r" style="padding-left: 10px">${formatCurrency(item.variant.sellingPrice * item.quantity)}</td>
 </tr>`).join("")}
 </table>
 <div class="d"></div>
 <table>
   ${(() => {
-    const subtotal = data.items.reduce((sum, item) => sum + (item.variant.price * item.quantity), 0);
+    const subtotal = data.items.reduce((sum, item) => sum + (item.variant.sellingPrice * item.quantity), 0);
     return `
   <tr><td>Subtotal</td><td class="r">${formatCurrency(subtotal)}</td></tr>
   ${data.discount && data.discount > 0 ? `<tr><td style="color:red">Diskon</td><td class="r" style="color:red">-${formatCurrency(data.discount)}</td></tr>` : ""}

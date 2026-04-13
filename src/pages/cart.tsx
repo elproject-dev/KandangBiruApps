@@ -40,7 +40,8 @@ export default function Cart() {
 
   // Form input manual
   const [itemName, setItemName] = useState("");
-  const [itemPrice, setItemPrice] = useState("");
+  const [itemOriginalPrice, setItemOriginalPrice] = useState("");
+  const [itemSellingPrice, setItemSellingPrice] = useState("");
   const [itemQuantity, setItemQuantity] = useState("1");
   const [itemUnit, setItemUnit] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -118,8 +119,8 @@ export default function Cart() {
       toast({ title: "Error", description: "Nama produk harus diisi", variant: "destructive" });
       return;
     }
-    const price = parseInt(itemPrice.replace(/\D/g, ""), 10) || 0;
-    if (price <= 0) {
+    const sellingPrice = parseInt(itemSellingPrice.replace(/\D/g, ""), 10) || 0;
+    if (sellingPrice <= 0) {
       toast({ title: "Error", description: "Harga harus lebih dari 0", variant: "destructive" });
       return;
     }
@@ -177,15 +178,19 @@ export default function Cart() {
       }
     }
 
-    addManualItem(itemName.trim(), price, qty, itemUnit);
+    // For manual items, set originalPrice = sellingPrice (profit = 0)
+    // For database items, use the originalPrice from the variant
+    const originalPrice = itemOriginalPrice ? parseInt(itemOriginalPrice.replace(/\D/g, ""), 10) || 0 : sellingPrice;
+    addManualItem(itemName.trim(), originalPrice, sellingPrice, qty, itemUnit);
     setItemName("");
-    setItemPrice("");
+    setItemOriginalPrice("");
+    setItemSellingPrice("");
     setItemQuantity("1");
     setItemUnit("");
     setShowSuggestions(false);
     setSelectedProduct(null);
     setSelectedVariant(null);
-    toast({ title: "Berhasil", description: `${itemName.trim()} ditambahkan ke keranjang` });
+    toast({ title: "Produk Ditambahkan", description: `${itemName} x${qty}` });
   };
 
   const formatCurrencyInput = (value: string) => {
@@ -240,7 +245,8 @@ export default function Cart() {
       // If only one variant, auto-select it
       const variant = product.variants[0];
       setItemName(product.name);
-      setItemPrice(formatCurrencyInput(variant.price.toString()));
+      setItemOriginalPrice(formatCurrencyInput(variant.originalPrice.toString()));
+      setItemSellingPrice(formatCurrencyInput(variant.sellingPrice.toString()));
       setItemUnit(variant.unit);
       setShowSuggestions(false);
     } else {
@@ -252,7 +258,8 @@ export default function Cart() {
   const handleSelectVariant = (variant: ProductVariant) => {
     if (selectedProduct) {
       setItemName(selectedProduct.name);
-      setItemPrice(formatCurrencyInput(variant.price.toString()));
+      setItemOriginalPrice(formatCurrencyInput(variant.originalPrice.toString()));
+      setItemSellingPrice(formatCurrencyInput(variant.sellingPrice.toString()));
       setItemUnit(variant.unit);
       setSelectedVariant(variant);
       setShowVariantDialog(false);
@@ -303,7 +310,8 @@ export default function Cart() {
             id: i.variant.id,
             name: i.variant.label,
             unit: i.variant.unit,
-            price: i.variant.price,
+            originalPrice: i.variant.originalPrice,
+            sellingPrice: i.variant.sellingPrice,
             stock: i.product.stock
           },
           quantity: i.quantity 
@@ -448,10 +456,10 @@ export default function Cart() {
                   <div className="flex-1">
                     <p className="text-sm font-medium">{item.product.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {item.quantity} {item.variant.unit} × {formatCurrency(item.variant.price)}
+                      {item.quantity} {item.variant.unit} × {formatCurrency(item.variant.sellingPrice)}
                     </p>
                   </div>
-                  <p className="font-semibold text-sm">{formatCurrency(item.variant.price * item.quantity)}</p>
+                  <p className="font-semibold text-sm">{formatCurrency(item.variant.sellingPrice * item.quantity)}</p>
                 </div>
                 {i < lastTransaction.items.length - 1 && <Separator />}
               </div>
@@ -581,9 +589,9 @@ export default function Cart() {
               <Input
                 placeholder="0"
                 type="text"
-                value={itemPrice}
+                value={itemSellingPrice}
                 onChange={(e) => {
-                  setItemPrice(formatCurrencyInput(e.target.value));
+                  setItemSellingPrice(formatCurrencyInput(e.target.value));
                   setSelectedProduct(null);
                   setSelectedVariant(null);
                 }}
@@ -708,9 +716,9 @@ export default function Cart() {
                       </Button>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-muted-foreground">{formatCurrency(item.variant.price)} / {item.variant.unit}</p>
+                      <p className="text-xs text-muted-foreground">{formatCurrency(item.variant.sellingPrice)} / {item.variant.unit}</p>
                       <p className="font-bold text-primary text-sm" data-testid={`text-subtotal-${item.product.id}`}>
-                        {formatCurrency(item.variant.price * item.quantity)}
+                        {formatCurrency(item.variant.sellingPrice * item.quantity)}
                       </p>
                     </div>
                   </div>
@@ -868,7 +876,7 @@ export default function Cart() {
                         <p className="text-xs text-muted-foreground">{variant.unit}</p>
                       </div>
                     </div>
-                    <p className="font-bold text-sm text-primary shrink-0">{formatCurrency(variant.price)}</p>
+                    <p className="font-bold text-sm text-primary shrink-0">{formatCurrency(variant.sellingPrice)}</p>
                   </button>
                 ))}
               </div>

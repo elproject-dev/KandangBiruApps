@@ -2,13 +2,15 @@ import { useMemo, useState, useEffect } from "react";
 import { Link } from "wouter";
 import {
   TrendingUp, Package, ShoppingCart, AlertTriangle,
-  ArrowRight, Clock, Leaf, CheckCircle, Calendar, DollarSign, Download, Loader2, RefreshCw,
+  ArrowRight, Clock, Leaf, CheckCircle, Calendar, DollarSign, Download, Loader2, RefreshCw, Wallet, Shield,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/store";
 import { getProducts, getTransactions, getExpenses } from "@/lib/supabase-store";
 import { useCategories } from "@/lib/category-context";
@@ -19,6 +21,7 @@ export default function Dashboard() {
   const [products, setProducts] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -66,6 +69,42 @@ export default function Dashboard() {
 
   // Chart filter state
   const [chartFilter, setChartFilter] = useState<"week" | "month" | "all">("week");
+  // Profit filter state
+  const [profitFilter, setProfitFilter] = useState<"today" | "week" | "month" | "all">("today");
+  // Admin mode state
+  const [isAdminMode, setIsAdminMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('adminMode') === 'true';
+    }
+    return false;
+  });
+  const [adminPasswordDialog, setAdminPasswordDialog] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const ADMIN_PASSWORD = "admin123"; // Bisa diubah nanti
+
+  const handleToggleAdminMode = () => {
+    if (isAdminMode) {
+      // Exit admin mode
+      setIsAdminMode(false);
+      localStorage.setItem('adminMode', 'false');
+    } else {
+      // Show password dialog
+      setAdminPasswordDialog(true);
+    }
+  };
+
+  const handleAdminPasswordSubmit = () => {
+    if (adminPassword === ADMIN_PASSWORD) {
+      setIsAdminMode(true);
+      localStorage.setItem('adminMode', 'true');
+      setAdminPasswordDialog(false);
+      setAdminPassword("");
+      toast({ title: "Mode Admin Aktif", description: "Anda sekarang bisa melihat informasi laba" });
+    } else {
+      toast({ title: "Password Salah", description: "Password tidak valid", variant: "destructive" });
+      setAdminPassword("");
+    }
+  };
 
   const stats = useMemo(() => {
     const today = new Date().toDateString();
@@ -80,6 +119,30 @@ export default function Dashboard() {
     const totalRevenue = transactions.reduce((s, t) => s + t.total, 0);
     const lowStock = products.filter((p) => p.stock < 10);
     
+    // Week transactions
+    const weekTxs = transactions.filter((t) => {
+      const txDate = new Date(t.date);
+      const now = new Date();
+      const weekAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+      return txDate >= weekAgo;
+    });
+    
+    // Calculate profit (laba)
+    const calculateProfit = (txs: any[]) => {
+      return txs.reduce((total: number, tx: any) => {
+        return total + tx.items.reduce((itemTotal: number, item: any) => {
+          const originalPrice = item.variant.originalPrice || 0;
+          const sellingPrice = item.variant.sellingPrice || 0;
+          const profitPerUnit = sellingPrice - originalPrice;
+          return itemTotal + (profitPerUnit * item.quantity);
+        }, 0);
+      }, 0);
+    };
+    const totalProfit = calculateProfit(transactions);
+    const todayProfit = calculateProfit(todayTxs);
+    const monthProfit = calculateProfit(monthTxs);
+    const weekProfit = calculateProfit(weekTxs);
+    
     // Calculate expenses
     const todayExpenses = expenses.filter((e: any) => new Date(e.date).toDateString() === today);
     const todayExpenseTotal = todayExpenses.reduce((s: number, e: any) => s + e.amount, 0);
@@ -90,7 +153,7 @@ export default function Dashboard() {
     const monthExpenseTotal = monthExpenses.reduce((s: number, e: any) => s + e.amount, 0);
     const totalExpenseTotal = expenses.reduce((s: number, e: any) => s + e.amount, 0);
     
-    return { todayRevenue, todayTxs: todayTxs.length, monthRevenue, monthTxs: monthTxs.length, totalRevenue, lowStock, todayExpenseTotal, monthExpenseTotal, totalExpenseTotal, todayExpenseCount: todayExpenses.length };
+    return { todayRevenue, todayTxs: todayTxs.length, monthRevenue, monthTxs: monthTxs.length, totalRevenue, lowStock, todayExpenseTotal, monthExpenseTotal, totalExpenseTotal, todayExpenseCount: todayExpenses.length, totalProfit, todayProfit, monthProfit, weekProfit };
   }, [products, transactions, expenses]);
 
   const categoryStats = useMemo(() => {
@@ -115,7 +178,7 @@ export default function Dashboard() {
           salesMap[item.product.id] = { product: item.product, sold: 0, revenue: 0 };
         }
         salesMap[item.product.id].sold += item.quantity;
-        salesMap[item.product.id].revenue += item.variant.price * item.quantity;
+        salesMap[item.product.id].revenue += item.variant.sellingPrice * item.quantity;
       }
     }
     return Object.values(salesMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
@@ -216,36 +279,51 @@ export default function Dashboard() {
       const worksheet = workbook.addWorksheet("Laporan Penjualan");
       
       // Define columns
-      worksheet.columns = [
+      const columns = [
         { header: "Tanggal", key: "tanggal", width: 15 },
         { header: "Jam", key: "jam", width: 10 },
         { header: "Pelanggan", key: "pelanggan", width: 20 },
         { header: "Nama Produk", key: "namaProduk", width: 35 },
         { header: "Qty", key: "qty", width: 8 },
-        { header: "Harga Satuan", key: "hargaSatuan", width: 15 },
         { header: "Varian", key: "varian", width: 12 },
+        { header: "Harga Asli", key: "hargaAsli", width: 15 },
+        { header: "Harga Jual", key: "hargaJual", width: 15 },
         { header: "Diskon", key: "diskon", width: 10 },
         { header: "PPN", key: "ppn", width: 10 },
         { header: "Layanan", key: "biayaLayanan", width: 10 },
+        ...(isAdminMode ? [{ header: "Laba", key: "laba", width: 15 }] : []),
         { header: "Total Transaksi", key: "totalTransaksi", width: 15 },
       ];
+      worksheet.columns = columns;
 
       // Add data
       filteredTransactions.forEach((tx) => {
         tx.items.forEach((item: any, index: number) => {
-          worksheet.addRow({
+          const originalPrice = item.variant.originalPrice || 0;
+          const sellingPrice = item.variant.sellingPrice || 0;
+          const profitPerUnit = sellingPrice - originalPrice;
+          const itemProfit = profitPerUnit * item.quantity;
+          
+          const rowData: any = {
             tanggal: new Date(tx.date).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }),
             jam: new Date(tx.date).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
             pelanggan: tx.customerName,
             namaProduk: item.product.name,
             qty: item.quantity,
-            hargaSatuan: item.variant.price,
             varian: item.variant.label || item.variant.name || '',
+            hargaAsli: originalPrice,
+            hargaJual: sellingPrice,
             diskon: index === 0 ? (tx.discount || 0) : null,
             ppn: index === 0 ? (tx.ppn || 0) : null,
             biayaLayanan: index === 0 ? (tx.serviceCharge || 0) : null,
             totalTransaksi: index === 0 ? tx.total : null,
-          });
+          };
+          
+          if (isAdminMode) {
+            rowData.laba = itemProfit;
+          }
+          
+          worksheet.addRow(rowData);
         });
         // Add empty row after each transaction
         worksheet.addRow([]);
@@ -258,6 +336,9 @@ export default function Dashboard() {
         if (!firstCell || !firstCell.value) {
           return;
         }
+        
+        const labaColumnIndex = isAdminMode ? 12 : -1; // Laba column index if exists
+        const totalColumnIndex = isAdminMode ? 13 : 12; // Total Transaksi column index
         
         row.eachCell((cell, colNumber) => {
           // Header row
@@ -275,36 +356,36 @@ export default function Dashboard() {
             } else if (colNumber === 5) {
               // Qty header: center
               cell.alignment = { horizontal: "center", vertical: "middle" };
-            } else if (colNumber >= 6 && colNumber <= 11) {
-              // Price columns and Varian header: right
+            } else if (colNumber >= 7 && (isAdminMode ? colNumber <= 13 : colNumber <= 12)) {
+              // Price columns (Harga Asli, Harga Jual, Diskon, PPN, Layanan, Laba, Total) header: right
               cell.alignment = { horizontal: "right", vertical: "middle" };
             } else {
-              // Other columns (Pelanggan, Nama Produk) header: left
+              // Other columns (Pelanggan, Nama Produk, Varian) header: left
               cell.alignment = { horizontal: "left", vertical: "middle" };
             }
           } else {
             // Data rows
-            // Tanggal and Jam (columns 1-2): center
+            // Tanggal (1) and Jam (2): center
             if (colNumber === 1 || colNumber === 2) {
               cell.alignment = { horizontal: "center", vertical: "middle" };
             }
-            // Qty (column 5): center
+            // Qty column (5): center
             else if (colNumber === 5) {
               cell.alignment = { horizontal: "center", vertical: "middle" };
             }
-            // Price columns and Varian (6-11): right
-            else if (colNumber >= 6 && colNumber <= 11) {
+            // Price columns (7 to totalColumnIndex): right
+            else if (colNumber >= 7 && colNumber <= totalColumnIndex) {
               cell.alignment = { horizontal: "right", vertical: "middle" };
-              // Only apply number format to price columns (6, 8-11), not Varian (7)
-              if (cell.value && colNumber !== 7) {
+              // Apply number format to numeric columns
+              if (cell.value) {
                 cell.numFmt = "#,##0";
               }
-              // Make Total Transaksi column (11) bold
-              if (colNumber === 11) {
+              // Make Total Transaksi bold
+              if (colNumber === totalColumnIndex) {
                 cell.font = { bold: true };
               }
             }
-            // Other columns (Pelanggan, Nama Produk): left
+            // Other columns (Pelanggan, Nama Produk, Varian): left
             else {
               cell.alignment = { horizontal: "left", vertical: "middle" };
             }
@@ -372,7 +453,7 @@ export default function Dashboard() {
     { title: "Omset Hari Ini", value: formatCurrency(stats.todayRevenue), sub: `${stats.todayTxs} transaksi`, icon: Calendar, iconColor: "text-emerald-600" },
     { title: "Omset Bulan Ini", value: formatCurrency(stats.monthRevenue), sub: `${stats.monthTxs} transaksi`, icon: CheckCircle, iconColor: "text-sky-600" },
     { title: "Total Produk", value: products.length.toString(), sub: `${products.reduce((s, p) => s + p.variants.length, 0)} varian harga`, icon: Package, iconColor: "text-amber-600" },
-    { title: "Stok Menipis", value: stats.lowStock.length.toString(), sub: stats.lowStock.length > 0 ? "perlu restock" : "stok aman", icon: AlertTriangle, iconColor: stats.lowStock.length > 0 ? "text-yellow-600" : "text-muted-foreground" },
+    { title: "Pengeluaran", value: formatCurrency(stats.monthExpenseTotal), sub: "Bulan ini", icon: DollarSign, iconColor: "text-destructive" },
   ];
 
   if (loading) {
@@ -399,6 +480,13 @@ export default function Dashboard() {
           <p className="text-sm opacity-80 mt-1">
             {new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </p>
+          <button
+            onClick={handleToggleAdminMode}
+            className="absolute top-3 right-2 p-2 rounded-full hover:bg-white/10 transition-colors"
+            title={isAdminMode ? "Keluar mode admin" : "Masuk mode admin"}
+          >
+            <Shield className={`h-4 w-4 ${isAdminMode ? "text-green-400" : "text-white/50"}`} />
+          </button>
           <div className="flex flex-wrap gap-3 mt-4 w-full">
             <Link href="/cart" className="flex-1 min-w-[120px]">
               <Button size="sm" className="w-full bg-white text-primary hover:bg-white/90 rounded-full gap-2 font-semibold no-print text-xs">
@@ -592,38 +680,64 @@ export default function Dashboard() {
 
         {/* Right panel (Expenses, Report, and Low Stock) */}
         <div className="lg:col-span-1 flex flex-col gap-4 lg:gap-5">
-          {/* Expense Card */}
-          <Link href="/expenses" className="w-full">
-            <Card className="border-card-border shadow-sm hover:shadow-md transition-all cursor-pointer hover:-translate-y-0.5 relative flex flex-col justify-center min-h-[120px]">
-              <DollarSign className="absolute top-4 right-4 h-5 w-5 text-destructive/50" />
-              <CardHeader className="pb-2 text-center lg:text-left">
+          {/* Total Laba Card - Admin Only */}
+          {isAdminMode && (
+            <Card className="border-card-border shadow-sm hover:shadow-md transition-all relative flex flex-col justify-center min-h-[120px]">
+              <div className="absolute top-4 right-4">
+                <Select value={profitFilter} onValueChange={(value: any) => setProfitFilter(value)}>
+                  <SelectTrigger className="w-20 h-6 text-[10px] px-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">Hari Ini</SelectItem>
+                    <SelectItem value="week">Minggu Ini</SelectItem>
+                    <SelectItem value="month">Bulan Ini</SelectItem>
+                    <SelectItem value="all">Semua</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Wallet className="absolute bottom-8 right-4 h-5 w-5 text-green-600/50" />
+              <CardHeader className="pb-2 text-left">
                 <CardTitle className="text-base">
-                  Pengeluaran Hari Ini
+                  Total Laba
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-0 text-center lg:text-left">
-                <p className="text-2xl font-bold text-destructive">{formatCurrency(stats.todayExpenseTotal)}</p>
-                <p className="text-xs text-muted-foreground mt-1">{stats.todayExpenseCount} catatan pengeluaran</p>
+              <CardContent className="pt-0 text-left">
+                <p className="text-2xl font-bold text-green-600">
+                  {formatCurrency(
+                    profitFilter === "today" ? stats.todayProfit :
+                    profitFilter === "week" ? stats.weekProfit :
+                    profitFilter === "month" ? stats.monthProfit :
+                    stats.totalProfit
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {profitFilter === "today" ? "Hari ini" :
+                   profitFilter === "week" ? "7 hari terakhir" :
+                   profitFilter === "month" ? "Bulan ini" : "Semua waktu"}
+                </p>
               </CardContent>
             </Card>
-          </Link>
+          )}
 
-          {/* Download Report Card */}
-          <Card
-            className="border-card-border shadow-sm hover:shadow-md transition-all cursor-pointer hover:-translate-y-0.5 relative flex flex-col justify-center min-h-[120px]"
-            onClick={() => setDownloadDialogOpen(true)}
-          >
-            <Download className="absolute top-4 right-4 h-5 w-5 text-primary/50" />
-            <CardHeader className="pb-2 text-center lg:text-left">
-              <CardTitle className="text-base">
-                Download Laporan
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0 text-center lg:text-left">
-              <p className="text-2xl font-bold text-primary">{transactions.length} Transaksi</p>
-              <p className="text-xs text-muted-foreground mt-1">Laporan penjualan dalam format Excel</p>
-            </CardContent>
-          </Card>
+          {/* Download Report Card - Admin Only */}
+          {isAdminMode && (
+            <Card
+              className="border-card-border shadow-sm hover:shadow-md transition-all cursor-pointer hover:-translate-y-0.5 relative flex flex-col justify-center min-h-[120px]"
+              onClick={() => setDownloadDialogOpen(true)}
+            >
+              <Download className="absolute bottom-8 right-4 h-5 w-5 text-primary/50" />
+              <CardHeader className="pb-2 text-left">
+                <CardTitle className="text-base">
+                  Download Laporan
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 text-left">
+                <p className="text-2xl font-bold text-primary">{transactions.length} Transaksi</p>
+                <p className="text-xs text-muted-foreground mt-1">Laporan penjualan dalam format Excel</p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Low stock alert - Side Panel */}
           {stats.lowStock.length > 0 && (
@@ -735,6 +849,34 @@ export default function Dashboard() {
               setDownloadDialogOpen(false);
             }}>
               Download
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin Password Dialog */}
+      <Dialog open={adminPasswordDialog} onOpenChange={setAdminPasswordDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Masuk Mode Admin</DialogTitle>
+            <DialogDescription>Masukkan password untuk mengakses informasi selengkapnya</DialogDescription>
+          </DialogHeader>
+          <Input
+            type="password"
+            placeholder="Password admin"
+            value={adminPassword}
+            onChange={(e) => setAdminPassword(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleAdminPasswordSubmit()}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setAdminPasswordDialog(false);
+              setAdminPassword("");
+            }}>
+              Batal
+            </Button>
+            <Button onClick={handleAdminPasswordSubmit}>
+              Masuk
             </Button>
           </DialogFooter>
         </DialogContent>

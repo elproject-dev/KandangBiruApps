@@ -26,13 +26,16 @@ import {
   type ProductVariant,
 } from "@/lib/supabase-store";
 
-function ProductRow({ product, onEdit, onDelete }: {
+function ProductRow({ product, onEdit, onDelete, isAdminMode }: {
   product: FeedProduct;
   onEdit: (p: FeedProduct) => void;
   onDelete: (id: string) => void;
+  isAdminMode: boolean;
 }) {
-  const lowestPrice = Math.min(...product.variants.map((v) => v.price));
-  const highestPrice = Math.max(...product.variants.map((v) => v.price));
+  const lowestOriginalPrice = Math.min(...product.variants.map((v) => v.originalPrice));
+  const highestOriginalPrice = Math.max(...product.variants.map((v) => v.originalPrice));
+  const lowestSellingPrice = Math.min(...product.variants.map((v) => v.sellingPrice));
+  const highestSellingPrice = Math.max(...product.variants.map((v) => v.sellingPrice));
 
   return (
     <tr
@@ -48,10 +51,17 @@ function ProductRow({ product, onEdit, onDelete }: {
           {getCategoryLabel(product.category)}
         </Badge>
       </td>
-      <td className="px-4 py-3 text-sm">
+      {isAdminMode && (
+      <td className="px-4 py-3 text-sm text-right">
         {product.variants.length === 1
-          ? formatCurrency(lowestPrice)
-          : `${formatCurrency(lowestPrice)} – ${formatCurrency(highestPrice)}`}
+          ? formatCurrency(lowestOriginalPrice)
+          : `${formatCurrency(lowestOriginalPrice)} – ${formatCurrency(highestOriginalPrice)}`}
+      </td>
+      )}
+      <td className="px-4 py-3 text-sm text-right">
+        {product.variants.length === 1
+          ? formatCurrency(lowestSellingPrice)
+          : `${formatCurrency(lowestSellingPrice)} – ${formatCurrency(highestSellingPrice)}`}
       </td>
       <td className="px-4 py-3 text-center">
         <Badge variant="secondary" className="text-xs">{product.variants.length} varian</Badge>
@@ -61,12 +71,16 @@ function ProductRow({ product, onEdit, onDelete }: {
       </td>
       <td className="px-4 py-3 text-center">
         <div className="flex gap-1.5 justify-center">
-          <Button size="icon" variant="outline" className="h-7 w-7 rounded-lg" data-testid={`button-edit-${product.id}`} onClick={() => onEdit(product)}>
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-          <Button size="icon" variant="outline" className="h-7 w-7 rounded-lg text-destructive hover:bg-destructive hover:text-destructive-foreground" data-testid={`button-delete-${product.id}`} onClick={() => onDelete(product.id)}>
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          {isAdminMode && (
+            <Button size="icon" variant="outline" className="h-7 w-7 rounded-lg" data-testid={`button-edit-${product.id}`} onClick={() => onEdit(product)}>
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {isAdminMode && (
+            <Button size="icon" variant="outline" className="h-7 w-7 rounded-lg text-destructive hover:bg-destructive hover:text-destructive-foreground" data-testid={`button-delete-${product.id}`} onClick={() => onDelete(product.id)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </td>
     </tr>
@@ -83,7 +97,7 @@ export default function Products() {
   const [editingProduct, setEditingProduct] = useState<FeedProduct | null>(null);
   const [formData, setFormData] = useState({ name: "", category: "", description: "", stock: "" });
   const [variants, setVariants] = useState<ProductVariant[]>([]);
-  const [variantForm, setVariantForm] = useState({ label: "", price: "", unit: "" });
+  const [variantForm, setVariantForm] = useState({ label: "", originalPrice: "", sellingPrice: "", unit: "" });
   const [editingVariant, setEditingVariant] = useState<string | null>(null);
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [importResult, setImportResult] = useState<string | null>(null);
@@ -92,6 +106,13 @@ export default function Products() {
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  // Admin mode state
+  const [isAdminMode, setIsAdminMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('adminMode') === 'true';
+    }
+    return false;
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { categories } = useCategories();
@@ -158,28 +179,34 @@ export default function Products() {
   const resetDialog = () => {
     setFormData({ name: "", category: categories[0]?.name || "", description: "", stock: "" });
     setVariants([]);
-    setVariantForm({ label: "", price: "", unit: "" });
+    setVariantForm({ label: "", originalPrice: "", sellingPrice: "", unit: "" });
     setEditingVariant(null);
     setEditingProduct(null);
   };
 
   const openEdit = (product: FeedProduct) => {
     setEditingProduct(product);
-    setFormData({ name: product.name, category: product.category, description: product.description, stock: product.stock.toString() });
+    setFormData({ 
+    name: product.name, 
+    category: product.category, 
+    description: product.description, 
+    stock: product.stock.toString()
+  });
     setVariants([...product.variants]);
     setDialogOpen(true);
   };
 
   const addVariant = () => {
-    if (!variantForm.label || !variantForm.price) {
+    if (!variantForm.label || !variantForm.sellingPrice) {
       toast({ title: "Data varian tidak lengkap", variant: "destructive" });
       return;
     }
-    const price = Number(parseCurrencyInput(variantForm.price));
+    const originalPrice = Number(parseCurrencyInput(variantForm.originalPrice)) || Number(parseCurrencyInput(variantForm.sellingPrice));
+    const sellingPrice = Number(parseCurrencyInput(variantForm.sellingPrice));
     if (editingVariant) {
       setVariants((prev) => prev.map((v) =>
         v.id === editingVariant
-          ? { ...v, label: variantForm.label, price, unit: variantForm.unit }
+          ? { ...v, label: variantForm.label, originalPrice, sellingPrice, unit: variantForm.unit }
           : v
       ));
       setEditingVariant(null);
@@ -187,27 +214,28 @@ export default function Products() {
       setVariants((prev) => [...prev, {
         id: `v_${Date.now()}`,
         label: variantForm.label,
-        price,
+        originalPrice,
+        sellingPrice,
         unit: variantForm.unit || "unit",
       }]);
     }
-    setVariantForm({ label: "", price: "", unit: "" });
+    setVariantForm({ label: "", originalPrice: "", sellingPrice: "", unit: "" });
   };
 
   const editVariant = (v: ProductVariant) => {
     setEditingVariant(v.id);
-    setVariantForm({ label: v.label, price: formatCurrencyInput(v.price.toString()), unit: v.unit });
+    setVariantForm({ label: v.label, originalPrice: formatCurrencyInput(v.originalPrice.toString()), sellingPrice: formatCurrencyInput(v.sellingPrice.toString()), unit: v.unit });
   };
 
   const deleteVariant = (id: string) => {
     setVariants((prev) => prev.filter((v) => v.id !== id));
-    if (editingVariant === id) { setEditingVariant(null); setVariantForm({ label: "", price: "", unit: "" }); }
+    if (editingVariant === id) { setEditingVariant(null); setVariantForm({ label: "", originalPrice: "", sellingPrice: "", unit: "" }); }
   };
 
   const handleSave = async () => {
     if (!formData.name) { toast({ title: "Nama produk wajib diisi", variant: "destructive" }); return; }
     if (variants.length === 0) { toast({ title: "Tambahkan minimal 1 varian harga", variant: "destructive" }); return; }
-    const data = { name: formData.name, category: formData.category, description: formData.description, stock: Number(formData.stock) || 0, variants };
+    const data = { name: formData.name, category: formData.category, description: formData.description, stock: Number(formData.stock) || 0, unit: "ons", variants };
 
     try {
       if (editingProduct) {
@@ -281,6 +309,7 @@ export default function Products() {
             description: p.description,
             category: p.category,
             stock: p.stock,
+            unit: "ons",
             variants: p.variants,
           });
         }
@@ -330,14 +359,18 @@ export default function Products() {
 
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-2">
-          <Button size="sm" variant="outline" className="gap-1.5 text-xs h-10" onClick={() => setImportDialogOpen(true)} data-testid="button-import">
-            <Upload className="h-4 w-4" />
-            <span className="hidden sm:inline">Import</span>
-          </Button>
+          {isAdminMode && (
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs h-10" onClick={() => setImportDialogOpen(true)} data-testid="button-import">
+              <Upload className="h-4 w-4" />
+              <span className="hidden sm:inline">Import</span>
+            </Button>
+          )}
+          {isAdminMode && (
           <Button size="sm" className="gap-1.5 text-xs h-10" onClick={() => { resetDialog(); setDialogOpen(true); }} data-testid="button-add-product">
             <Plus className="h-4 w-4" />
             Tambah Produk
           </Button>
+          )}
         </div>
 
         {/* Filters */}
@@ -375,17 +408,34 @@ export default function Products() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                {["Produk", "Kategori", "Harga", "Varian", "Stok", "Aksi"].map((h, i) => (
-                  <th key={h} className={`text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide px-4 py-3 ${i === 1 || i === 3 || i === 4 || i === 5 ? 'text-center' : ''}`}>{h}</th>
+                {[
+                  "Produk", 
+                  "Kategori", 
+                  ...(isAdminMode ? ["Harga Asli"] : []),
+                  "Harga Jual", 
+                  "Varian", 
+                  "Stok", 
+                  "Aksi"
+                ].map((h, i) => (
+                  <th key={h} className={`text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide px-4 py-3 ${
+                    i === 1 || 
+                    (isAdminMode ? i === 4 : i === 3) || 
+                    (isAdminMode ? i === 5 : i === 4) || 
+                    (isAdminMode ? i === 6 : i === 5) 
+                      ? 'text-center' : 
+                      (isAdminMode ? i === 2 : i === 2) || i === (isAdminMode ? 3 : 3) 
+                        ? 'text-right' : 
+                        ''
+                  }`}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.map((product) => (
-                <ProductRow key={product.id} product={product} onEdit={openEdit} onDelete={handleDelete} />
+                <ProductRow key={product.id} product={product} onEdit={openEdit} onDelete={handleDelete} isAdminMode={isAdminMode} />
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-12 text-muted-foreground">
+                <tr><td colSpan={isAdminMode ? 7 : 6} className="text-center py-12 text-muted-foreground">
                   <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
                   <p className="text-sm">Belum ada produk</p>
                 </td></tr>
@@ -397,7 +447,7 @@ export default function Products() {
         {/* Mobile */}
         <div className="md:hidden p-3 space-y-3">
           {filtered.map((product) => {
-            const lowestPrice = Math.min(...product.variants.map((v) => v.price));
+            const lowestPrice = Math.min(...product.variants.map((v) => v.sellingPrice));
             return (
               <Card key={product.id} className="border-card-border shadow-sm" data-testid={`card-manage-${product.id}`}>
                 <CardContent className="p-4">
@@ -430,12 +480,16 @@ export default function Products() {
 
                   {/* Actions */}
                   <div className="flex gap-2 pt-2 border-t border-border/50">
-                    <Button size="sm" variant="outline" className="flex-1 h-9 text-xs gap-1.5" onClick={() => openEdit(product)} data-testid={`button-edit-${product.id}`}>
-                      <Pencil className="h-3 w-3" />Edit
-                    </Button>
-                    <Button size="sm" variant="outline" className="flex-1 h-9 text-xs gap-1.5 text-destructive hover:bg-destructive hover:text-destructive-foreground" onClick={() => handleDelete(product.id)} data-testid={`button-delete-${product.id}`}>
-                      <Trash2 className="h-3 w-3" />Hapus
-                    </Button>
+                    {isAdminMode && (
+                      <Button size="sm" variant="outline" className="flex-1 h-9 text-xs gap-1.5" onClick={() => openEdit(product)} data-testid={`button-edit-${product.id}`}>
+                        <Pencil className="h-3 w-3" />Edit
+                      </Button>
+                    )}
+                    {isAdminMode && (
+                      <Button size="sm" variant="outline" className="flex-1 h-9 text-xs gap-1.5 text-destructive hover:bg-destructive hover:text-destructive-foreground" onClick={() => handleDelete(product.id)} data-testid={`button-delete-${product.id}`}>
+                        <Trash2 className="h-3 w-3" />Hapus
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -614,7 +668,8 @@ export default function Products() {
                       <p className="text-xs font-medium truncate">{v.label}</p>
                       <p className="text-[10px] text-muted-foreground">{v.unit}</p>
                     </div>
-                    <p className="text-xs font-bold text-primary shrink-0">{formatCurrency(v.price)}</p>
+                    <p className="text-xs font-bold text-primary shrink-0">{formatCurrency(v.sellingPrice)}</p>
+                    {isAdminMode && (
                     <div className="flex gap-1 shrink-0">
                       <button onClick={() => editVariant(v)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground">
                         <Pencil className="h-2.5 w-2.5" />
@@ -623,6 +678,7 @@ export default function Products() {
                         <Trash2 className="h-2.5 w-2.5" />
                       </button>
                     </div>
+                    )}
                   </div>
                 ))}
                 {variants.length === 0 && (
@@ -648,11 +704,19 @@ export default function Products() {
                     />
                   </div>
                   <Input
-                    data-testid="input-variant-price"
+                    data-testid="input-variant-original-price"
                     type="text"
-                    placeholder="Harga"
-                    value={variantForm.price}
-                    onChange={(e) => setVariantForm({ ...variantForm, price: formatCurrencyInput(e.target.value) })}
+                    placeholder="Harga Asli (Modal)"
+                    value={variantForm.originalPrice}
+                    onChange={(e) => setVariantForm({ ...variantForm, originalPrice: formatCurrencyInput(e.target.value) })}
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    data-testid="input-variant-selling-price"
+                    type="text"
+                    placeholder="Harga Jual"
+                    value={variantForm.sellingPrice}
+                    onChange={(e) => setVariantForm({ ...variantForm, sellingPrice: formatCurrencyInput(e.target.value) })}
                     className="h-8 text-xs"
                   />
                   <Input

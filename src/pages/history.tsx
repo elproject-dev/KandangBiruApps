@@ -12,7 +12,7 @@ import { Printer as CapacitorPrinter } from "@capgo/capacitor-printer";
 import { Capacitor } from "@capacitor/core";
 import { print, type PrintTemplateData } from "@/lib/print";
 
-function TransactionCard({ transaction, onDelete, expanded, onToggle }: { transaction: Transaction; onDelete: (id: string) => void; expanded: boolean; onToggle: () => void }) {
+function TransactionCard({ transaction, onDelete, expanded, onToggle, isAdminMode }: { transaction: Transaction; onDelete: (id: string) => void; expanded: boolean; onToggle: () => void; isAdminMode: boolean }) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { toast } = useToast();
 
@@ -115,11 +115,13 @@ function TransactionCard({ transaction, onDelete, expanded, onToggle }: { transa
             {expanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
           </div>
           <div className="flex gap-1">
-            <Button size="icon" variant="ghost" className="h-7 w-7 no-print text-destructive hover:text-destructive hover:bg-destructive/10"
+            {isAdminMode && (
+            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:bg-destructive hover:text-destructive-foreground no-print"
               data-testid={`button-delete-${transaction.id}`}
               onClick={(e) => { e.stopPropagation(); handleDelete(); }}>
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
+            )}
             <Button size="icon" variant="ghost" className="h-7 w-7 no-print"
               data-testid={`button-reprint-${transaction.id}`}
               onClick={(e) => { e.stopPropagation(); handlePrint(); }}>
@@ -143,10 +145,10 @@ function TransactionCard({ transaction, onDelete, expanded, onToggle }: { transa
                   <div>
                     <p className="text-sm font-medium">{item.product.name}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      <span className="font-semibold text-muted-foreground">{item.quantity}</span> <span className="font-semibold text-primary">{item.variant.unit}</span> <span className="font-semibold text-muted-foreground">× {formatCurrency(item.variant.price)}</span>
+                      <span className="font-semibold text-muted-foreground">{item.quantity}</span> <span className="font-semibold text-primary">{item.variant.unit}</span> <span className="font-semibold text-muted-foreground">× {formatCurrency(item.variant.sellingPrice)}</span>
                     </p>
                   </div>
-                  <p className="text-sm font-semibold text-muted-foreground">{formatCurrency(item.variant.price * item.quantity)}</p>
+                  <p className="text-sm font-semibold text-muted-foreground">{formatCurrency(item.variant.sellingPrice * item.quantity)}</p>
                 </div>
                 {i < transaction.items.length - 1 && <Separator className="opacity-40" />}
               </div>
@@ -207,6 +209,13 @@ export default function History() {
   const [expandedTransactionId, setExpandedTransactionId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const ITEMS_PER_PAGE = 20;
+  // Admin mode state
+  const [isAdminMode, setIsAdminMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('adminMode') === 'true';
+    }
+    return false;
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -386,6 +395,7 @@ export default function History() {
                   onDelete={handleDelete}
                   expanded={expandedTransactionId === transaction.id}
                   onToggle={() => handleToggleExpand(transaction.id)}
+                  isAdminMode={isAdminMode}
                 />
               ))}
               {totalPages > 1 && (
