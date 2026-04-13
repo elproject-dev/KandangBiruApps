@@ -1,5 +1,7 @@
 export type MainCategory = "bijian" | "konsentrat" | "vitamin" | "mineral" | "hijauan" | "lainnya";
 
+import type { FeedProduct } from "./supabase-store";
+
 function generateTransactionId(): string {
   const lastNumber = parseInt(localStorage.getItem("lastTransactionNumber") || "980000");
   const newNumber = lastNumber + 1;
@@ -43,15 +45,6 @@ export interface ProductVariant {
   label: string;
   price: number;
   unit: string;
-}
-
-export interface FeedProduct {
-  id: string;
-  name: string;
-  category: string;
-  description: string;
-  stock: number;
-  variants: ProductVariant[];
 }
 
 export interface CartItem {
@@ -231,6 +224,7 @@ export function importProductsFromExcel(rows: Record<string, string>[]): { impor
         category: category,
         description,
         stock,
+        unit: "ons",
         variants: [],
       });
     }

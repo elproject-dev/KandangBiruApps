@@ -20,6 +20,7 @@ import {
   MessageSquare,
   Package,
   PlusCircle,
+  RefreshCw,
   Settings,
   ShoppingCart,
   X,
@@ -36,14 +37,23 @@ import Support from "@/pages/support";
 import LoginPage from "@/pages/login";
 import NotFound from "@/pages/not-found";
 import StockConversion from "@/pages/stock-conversion";
+import { useStockNotifications } from "@/hooks/use-stock-notifications";
+import { getPrayerNotificationsEnabled, schedulePrayerNotifications } from "@/lib/notifications";
 
 const queryClient = new QueryClient();
+
+// Auto-schedule prayer notifications on app load
+if (getPrayerNotificationsEnabled()) {
+  console.log('Auto-scheduling prayer notifications on app load...');
+  schedulePrayerNotifications();
+}
 
 const navItems = [
   { path: "/", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/cart", icon: PlusCircle, label: "Kasir", showBadge: true },
   { path: "/products", icon: Package, label: "Produk" },
   { path: "/history", icon: Clock, label: "Riwayat" },
+  { path: "/stock-conversion", icon: RefreshCw, label: "Konversi Stok", showOnMobile: false },
   { path: "/expenses", icon: DollarSign, label: "Pengeluaran", showOnMobile: false },
   { path: "/guide", icon: BookOpen, label: "Panduan", showOnMobile: false },
   { path: "/support", icon: MessageSquare, label: "Layanan", showOnMobile: false },
@@ -280,6 +290,12 @@ function AppShell() {
 function AuthGate() {
   const { session, loading } = useAuth();
   const [location, setLocation] = useLocation();
+
+  // Enable stock notifications when logged in (Android only)
+  // Settings will be read from localStorage
+  useStockNotifications({
+    enabled: !!session,
+  });
 
   if (loading) {
     return (

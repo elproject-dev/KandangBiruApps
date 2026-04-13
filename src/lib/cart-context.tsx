@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
-import type { CartItem, FeedProduct, ProductVariant } from "./store";
+import type { CartItem, ProductVariant } from "./store";
+import type { FeedProduct } from "./supabase-store";
 import { cartItemKey } from "./store";
 
 interface CartContextType {
@@ -42,6 +43,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       category: "lainnya",
       description: "",
       stock: 9999,
+      unit,
       variants: [],
     };
     const variant: ProductVariant = {

@@ -9,8 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/lib/cart-context";
-import { formatCurrency, convertToOns, type FeedProduct, type ProductVariant } from "@/lib/store";
-import { getProducts, saveTransaction, getSettings, incrementTransactionNumber, updateProduct } from "@/lib/supabase-store";
+import { formatCurrency, convertToOns, type ProductVariant } from "@/lib/store";
+import { getProducts, saveTransaction, getSettings, incrementTransactionNumber, updateProduct, type FeedProduct } from "@/lib/supabase-store";
 import { useLocation } from "wouter";
 import { Printer as CapacitorPrinter } from "@capgo/capacitor-printer";
 import { Capacitor } from "@capacitor/core";
@@ -393,7 +393,7 @@ export default function Cart() {
       ppnPercentage: lastTransaction.ppnPercentage,
     };
 
-    const html = print(printData, settings);
+    const html = await print(printData, settings);
 
     if (Capacitor.isNativePlatform()) {
       try {

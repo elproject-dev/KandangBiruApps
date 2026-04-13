@@ -33,7 +33,7 @@ function TransactionCard({ transaction, onDelete, expanded, onToggle }: { transa
       ppnPercentage: transaction.ppnPercentage,
     };
 
-    const html = print(printData, settings);
+    const html = await print(printData, settings);
 
     if (Capacitor.isNativePlatform()) {
       try {

@@ -1,4 +1,6 @@
-import { Settings as SettingsIcon, Type, Moon, Sun, Plus, Trash2, AlertCircle, Store, QrCode, Package, Tag, Loader2 } from "lucide-react";
+import { Settings as SettingsIcon, Type, Moon, Sun, Plus, Trash2, AlertCircle, Store, QrCode, Package, Tag, Loader2, Clock } from "lucide-react";
+import { Capacitor } from '@capacitor/core';
+import { getPrayerNotificationsEnabled, setPrayerNotificationsEnabled, schedulePrayerNotifications, resetPrayerSchedule } from "@/lib/notifications";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -51,6 +53,27 @@ export default function SettingsPage() {
   const [mounted, setMounted] = useState(false);
   const { toast } = useToast();
 
+  // Notification settings (Android only)
+  const [enableStockNotifications, setEnableStockNotifications] = useState(true);
+  const [enablePrayerNotifications, setEnablePrayerNotifications] = useState(true);
+
+  const handleSaveNotificationSettings = async () => {
+    try {
+      localStorage.setItem('enableStockNotifications', String(enableStockNotifications));
+      toast({
+        title: "Pengaturan Notifikasi Disimpan",
+        description: "Pengaturan notifikasi stok telah disimpan",
+      });
+    } catch (err) {
+      console.error("Failed to save notification settings:", err);
+      toast({
+        title: "Error",
+        description: "Gagal menyimpan pengaturan notifikasi",
+        variant: "destructive",
+      });
+    }
+  };
+
   const formatCurrencyInput = (value: string) => {
     const cleanValue = value.replace(/\D/g, '');
     if (!cleanValue) return '';
@@ -93,9 +116,17 @@ export default function SettingsPage() {
         const savedEnablePPN = localStorage.getItem("enablePPN");
         setEnablePPN(savedEnablePPN === "true");
         setDefaultPPN(localStorage.getItem("defaultPPN") || "");
-      } finally {
-        setLoading(false);
       }
+
+      // Load notification settings from localStorage (Android only)
+      const savedEnableNotifications = localStorage.getItem("enableStockNotifications");
+      setEnableStockNotifications(savedEnableNotifications !== "false");
+
+      // Load prayer notification setting
+      const prayerEnabled = getPrayerNotificationsEnabled();
+      setEnablePrayerNotifications(prayerEnabled);
+
+      setLoading(false);
     };
     loadSettings();
   }, []);
@@ -332,6 +363,41 @@ export default function SettingsPage() {
     }
   };
 
+  const handleTogglePrayerNotifications = async (enabled: boolean) => {
+    console.log('handleTogglePrayerNotifications called with enabled:', enabled);
+    setEnablePrayerNotifications(enabled);
+    setPrayerNotificationsEnabled(enabled);
+    if (enabled) {
+      console.log('Scheduling prayer notifications...');
+      toast({
+        title: "Notifikasi Sholat Diaktifkan",
+        description: "Jadwal sholat akan di-schedule otomatis.",
+      });
+      // Schedule prayer notifications when enabled
+      try {
+        const count = await schedulePrayerNotifications();
+        console.log('Prayer notifications scheduled:', count);
+      } catch (err) {
+        console.error('Failed to schedule prayer notifications:', err);
+      }
+    } else {
+      toast({
+        title: "Notifikasi Sholat Dinonaktifkan",
+        description: "Notifikasi sholat telah dimatikan.",
+      });
+    }
+  };
+
+  const handleResetPrayerSchedule = () => {
+    (async () => {
+      const canceled = await resetPrayerSchedule();
+      toast({
+        title: "Jadwal Sholat Direset",
+        description: `Jadwal sholat direset. Pending dibatalkan: ${canceled}. Aktifkan ulang untuk menjadwalkan ulang.`,
+      });
+    })();
+  };
+
   if (loading) {
     return (
       <div className="max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -535,6 +601,65 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Notification Settings - Android Only */}
+      {Capacitor.getPlatform() === 'android' && (
+        <Card className="border-card-border shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Loader2 className="h-4 w-4 text-primary" />
+              Notifikasi Stok
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Aktifkan notifikasi stok menipis</span>
+                <Switch checked={enableStockNotifications} onCheckedChange={setEnableStockNotifications} />
+              </div>
+              <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                Notifikasi akan dikirim otomatis jika stok produk &lt; 10 (dicek setiap 3 jam)
+              </p>
+              <Button onClick={handleSaveNotificationSettings} className="w-full">
+                Simpan Notifikasi
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {Capacitor.isNativePlatform() && (
+      <Card className="border-card-border shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Clock className="h-4 w-4 text-primary" />
+            Notifikasi Sholat
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <label className="text-sm font-medium">Aktifkan Notifikasi Sholat</label>
+                <p className="text-xs text-muted-foreground mt-1">Notif 10 menit sebelum waktu sholat (D.I.Y)</p>
+              </div>
+              <Switch
+                checked={enablePrayerNotifications}
+                onCheckedChange={handleTogglePrayerNotifications}
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResetPrayerSchedule}
+              className="w-full"
+            >
+              Reset Jadwal Sholat
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      )}
 
       <Card className="border-card-border shadow-sm">
         <CardHeader className="pb-3">

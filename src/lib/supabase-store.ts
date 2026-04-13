@@ -14,6 +14,7 @@ export interface FeedProduct {
   category: string;
   description: string;
   stock: number;
+  unit: string; // ons, kg, liter, pcs, dll
   variants: ProductVariant[];
 }
 
@@ -92,6 +93,7 @@ function normalizeProduct(row: any): FeedProduct {
     category: row.category ?? '',
     description: row.description ?? '',
     stock: stock,
+    unit: row.unit ?? 'ons', // Default to 'ons' if not in database
     variants: normalizeVariants(row.variants),
   };
 }
@@ -132,6 +134,7 @@ export async function updateProduct(id: string, updates: Partial<Omit<FeedProduc
       ...(updates.category !== undefined ? { category: updates.category } : {}),
       ...(updates.description !== undefined ? { description: updates.description } : {}),
       ...(updates.stock !== undefined ? { stock: updates.stock } : {}),
+      ...(updates.unit !== undefined ? { unit: updates.unit } : {}),
       ...(updates.variants !== undefined ? { variants: updates.variants } : {}),
       updated_at: new Date().toISOString(),
     })

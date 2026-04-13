@@ -1,4 +1,5 @@
 import { Capacitor } from "@capacitor/core";
+import QRCode from "qrcode";
 
 export interface PrintTemplateData {
   id: string;
@@ -39,10 +40,10 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-export function print(
+export async function print(
   data: PrintTemplateData,
   settings: PrintSettings
-): string {
+): Promise<string> {
   const storeName = settings.storeName || "TOKO PAKAN TERNAK";
   const storeAddress = settings.storeAddress || "Jl. Peternakan No.22 Ngalor Ngidul, Kec. Nganjuk";
   const storePhone = settings.storePhone || "0812-3456-7890";
@@ -50,10 +51,22 @@ export function print(
   const qrCodeLink = settings.qrCodeLink || "";
   const showQRCode = settings.showQRCode || false;
 
+  // Generate QR code as base64 image (works on both web and Android)
+  let qrCodeImageBase64 = "";
+  if (showQRCode && qrCodeLink) {
+    try {
+      qrCodeImageBase64 = await QRCode.toDataURL(qrCodeLink, {
+        width: 70,
+        margin: 1,
+      });
+    } catch (error) {
+      console.error("Failed to generate QR code:", error);
+    }
+  }
+
   const html = `<!DOCTYPE html>
 <html><head><title>Struk</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
   @page{size:70mm auto;margin:1mm;}
   body{width:70mm;margin:0 auto;padding:2mm;font-family:'Poppins',sans-serif;font-size:11px;line-height:1.6;color:#000;background:#fff}
@@ -99,10 +112,9 @@ ${data.items.map((item) => `<tr>
 </table>
 <div class="d"></div>
 <div class="c" style="font-size:9px;margin-top:10px">${storeFooter}</div>
-${showQRCode && qrCodeLink ? `<div id="qrcode"></div>` : ""}
+${qrCodeImageBase64 ? `<div id="qrcode"><img src="${qrCodeImageBase64}" width="70" height="70" alt="QR Code" /></div>` : ""}
 <script>
   window.onload=function(){
-    ${showQRCode && qrCodeLink ? `new QRCode(document.getElementById("qrcode"), {text: "${qrCodeLink}", width: 70, height: 70});` : ""}
     ${!Capacitor.isNativePlatform() ? `
     setTimeout(function(){
       try { window.focus(); } catch(e) {}

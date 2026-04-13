@@ -13,6 +13,7 @@ import { formatCurrency } from "@/lib/store";
 import { getProducts, getTransactions, getExpenses } from "@/lib/supabase-store";
 import { useCategories } from "@/lib/category-context";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { Capacitor } from "@capacitor/core";
 
 export default function Dashboard() {
   const [products, setProducts] = useState<any[]>([]);
@@ -317,13 +318,51 @@ export default function Dashboard() {
 
       // Download file
       const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      link.click();
-      window.URL.revokeObjectURL(url);
+
+      // On Android/iOS (Capacitor native), browser-style download often doesn't work.
+      // Save the file using Filesystem then open share sheet.
+      if (Capacitor.isNativePlatform()) {
+        const { Filesystem, Directory } = await import("@capacitor/filesystem");
+        const { Share } = await import("@capacitor/share");
+
+        const toBase64 = (arrayBuffer: ArrayBuffer): string => {
+          const bytes = new Uint8Array(arrayBuffer);
+          const chunkSize = 0x8000;
+          let binary = '';
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+          }
+          return btoa(binary);
+        };
+
+        const dataBase64 = toBase64(buffer as ArrayBuffer);
+
+        await Filesystem.writeFile({
+          path: filename,
+          data: dataBase64,
+          directory: Directory.Documents,
+        });
+
+        const uri = await Filesystem.getUri({
+          path: filename,
+          directory: Directory.Documents,
+        });
+
+        await Share.share({
+          title: "Laporan Penjualan",
+          text: filename,
+          url: uri.uri,
+          dialogTitle: "Bagikan Laporan",
+        });
+      } else {
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.click();
+        window.URL.revokeObjectURL(url);
+      }
     } catch (err) {
       console.error("Error downloading report:", err);
     }
@@ -361,7 +400,7 @@ export default function Dashboard() {
             {new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </p>
           <div className="flex flex-wrap gap-3 mt-4 w-full">
-            <Link href="/catalog" className="flex-1 min-w-[120px]">
+            <Link href="/cart" className="flex-1 min-w-[120px]">
               <Button size="sm" className="w-full bg-white text-primary hover:bg-white/90 rounded-full gap-2 font-semibold no-print text-xs">
                 <ShoppingCart className="h-3.5 w-3.5" />Mulai Transaksi
               </Button>
