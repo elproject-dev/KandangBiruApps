@@ -66,27 +66,26 @@ export async function print(
 
   const html = `<!DOCTYPE html>
 <html><head><title>Struk</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   @page{size:70mm auto;margin:1mm;}
-  body{width:70mm;margin:0 auto;padding:2mm;font-family:'Poppins',sans-serif;font-size:11px;line-height:1.6;color:#000;background:#fff}
-  .c{text-align:center}.b{font-weight:600}.d{border-top:1px dashed #000;margin:3px 0}
-  table{width:100%;border-collapse:collapse}td{padding:1px 0;font-size:10px;vertical-align:top}.r{text-align:right}
+  body{width:70mm;margin:0 auto;padding:2mm;font-family:'Consolas',monospace;font-weight:bold;font-size:14px;line-height:1.6;color:#000;background:#fff}
+  .c{text-align:center;font-weight:bold}.b{font-weight:bold}.d{border-top:1px dashed #000;margin:3px 0}
+  table{width:100%;border-collapse:collapse}td{padding:1px 0;font-size:13px;vertical-align:top;font-weight:bold}.r{text-align:right}
   #qrcode{display:flex;justify-content:center;margin-top:4px;}
   #qrcode img{width:70px;height:70px}
 </style></head>
 <body>
-<div class="c b" style="font-size:14px">${storeName}</div>
-<div class="c" style="font-size:9px">${storeAddress}</div>
-<div class="c" style="font-size:9px">Telp: ${storePhone}</div>
+<div class="c b" style="font-size:18px">${storeName}</div>
+<div class="c" style="font-size:12px">${storeAddress}</div>
+<div class="c" style="font-size:12px">Telp: ${storePhone}</div>
 <div class="d"></div>
-<table style="font-size:9px">
+<table style="font-size:12px">
   <tr><td style="width:60px">No ID</td><td>: ${data.id}</td></tr>
   <tr><td>Tanggal</td><td>: ${new Date(data.date).toLocaleDateString("id-ID",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",hour12:false})}</td></tr>
   <tr><td>Pelanggan</td><td>: ${data.customerName}</td></tr>
 </table>
 <div class="d"></div>
-<table style="font-size:9px; border-collapse: collapse; width: 100%">
+<table style="font-size:12px; border-collapse: collapse; width: 100%">
 ${data.items.map((item) => `<tr>
   <td style="width:7px; padding-right: 5px; text-align: left">${item.quantity}</td>
   <td style="width:30px; padding-right: 5px">${item.variant.unit}</td>
@@ -107,11 +106,11 @@ ${data.items.map((item) => `<tr>
   })()}
 </table>
 <div class="d"></div>
-<table style="font-size:9px">
+<table style="font-size:12px">
   <tr><td>Metode Pembayaran</td><td class="r">${data.paymentMethod.toUpperCase()}</td></tr>
 </table>
 <div class="d"></div>
-<div class="c" style="font-size:9px;margin-top:10px">${storeFooter}</div>
+<div class="c" style="font-size:12px;margin-top:10px">${storeFooter}</div>
 ${qrCodeImageBase64 ? `<div id="qrcode"><img src="${qrCodeImageBase64}" width="70" height="70" alt="QR Code" /></div>` : ""}
 <script>
   window.onload=function(){
