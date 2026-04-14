@@ -418,23 +418,36 @@ export default function Dashboard() {
 
         const dataBase64 = toBase64(buffer as ArrayBuffer);
 
-        await Filesystem.writeFile({
-          path: filename,
-          data: dataBase64,
-          directory: Directory.Documents,
-        });
+        try {
+          // Use Directory.Cache for Android (more reliable than Documents)
+          const directory = Directory.Cache;
+          
+          await Filesystem.writeFile({
+            path: filename,
+            data: dataBase64,
+            directory: directory,
+            recursive: true,
+          });
 
-        const uri = await Filesystem.getUri({
-          path: filename,
-          directory: Directory.Documents,
-        });
+          const uri = await Filesystem.getUri({
+            path: filename,
+            directory: directory,
+          });
 
-        await Share.share({
-          title: "Laporan Penjualan",
-          text: filename,
-          url: uri.uri,
-          dialogTitle: "Bagikan Laporan",
-        });
+          await Share.share({
+            title: "Laporan Penjualan",
+            text: filename,
+            url: uri.uri,
+            dialogTitle: "Bagikan Laporan",
+          });
+        } catch (error) {
+          console.error("Error writing file on native platform:", error);
+          toast({ 
+            title: "Gagal Download", 
+            description: "Terjadi kesalahan saat menyimpan file", 
+            variant: "destructive" 
+          });
+        }
       } else {
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const url = window.URL.createObjectURL(blob);

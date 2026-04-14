@@ -52,13 +52,13 @@ function ProductRow({ product, onEdit, onDelete, isAdminMode }: {
         </Badge>
       </td>
       {isAdminMode && (
-      <td className="px-4 py-3 text-sm text-right">
+      <td className="px-4 py-3 text-xs text-right">
         {product.variants.length === 1
           ? formatCurrency(lowestOriginalPrice)
           : `${formatCurrency(lowestOriginalPrice)} – ${formatCurrency(highestOriginalPrice)}`}
       </td>
       )}
-      <td className="px-4 py-3 text-sm text-right">
+      <td className="px-4 py-3 text-xs text-right">
         {product.variants.length === 1
           ? formatCurrency(lowestSellingPrice)
           : `${formatCurrency(lowestSellingPrice)} – ${formatCurrency(highestSellingPrice)}`}
