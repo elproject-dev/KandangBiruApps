@@ -12,7 +12,7 @@ if (Number.isNaN(port) || port <= 0) {
 const basePath = process.env.BASE_PATH || "/";
 
 export default defineConfig({
-  base: basePath,
+  base: "/",
   plugins: [
     react(),
   ],
@@ -27,6 +27,19 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('exceljs')) {
+            return 'exceljs';
+          }
+          if (id.includes('xlsx')) {
+            return 'xlsx';
+          }
+        },
+      },
+    },
   },
   server: {
     port,

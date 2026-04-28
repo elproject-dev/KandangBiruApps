@@ -50,6 +50,7 @@ export interface AppSettings {
   storeFooter?: string;
   qrCodeLink?: string;
   showQRCode?: boolean;
+  bluetoothPrinterAddress?: string;
   lastTransactionNumber?: number;
   enableServiceCharge?: boolean;
   defaultServiceCharge?: string;

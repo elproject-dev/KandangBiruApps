@@ -114,12 +114,7 @@ ${data.items.map((item) => `<tr>
 ${qrCodeImageBase64 ? `<div id="qrcode"><img src="${qrCodeImageBase64}" width="70" height="70" alt="QR Code" /></div>` : ""}
 <script>
   window.onload=function(){
-    ${!Capacitor.isNativePlatform() ? `
-    setTimeout(function(){
-      try { window.focus(); } catch(e) {}
-      try { window.print(); } catch(e) {}
-    }, 300);
-    ` : ""}
+    
   };
 </script>
 </body></html>`;

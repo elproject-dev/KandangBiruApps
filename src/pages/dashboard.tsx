@@ -400,62 +400,104 @@ export default function Dashboard() {
       // Download file
       const buffer = await workbook.xlsx.writeBuffer();
 
-      // On Android/iOS (Capacitor native), browser-style download often doesn't work.
-      // Save the file using Filesystem then open share sheet.
-      if (Capacitor.isNativePlatform()) {
-        const { Filesystem, Directory } = await import("@capacitor/filesystem");
-        const { Share } = await import("@capacitor/share");
+      // Check if running in Tauri (desktop) by trying to import Tauri API
+      try {
+        console.log("Trying Tauri mode...");
+        const { save } = await import("@tauri-apps/plugin-dialog");
+        const { writeFile } = await import("@tauri-apps/plugin-fs");
+        console.log("Tauri plugins imported successfully");
 
-        const toBase64 = (arrayBuffer: ArrayBuffer): string => {
-          const bytes = new Uint8Array(arrayBuffer);
-          const chunkSize = 0x8000;
-          let binary = '';
-          for (let i = 0; i < bytes.length; i += chunkSize) {
-            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-          }
-          return btoa(binary);
-        };
+        const filePath = await save({
+          defaultPath: filename,
+          filters: [
+            {
+              name: "Excel File",
+              extensions: ["xlsx"]
+            }
+          ]
+        });
 
-        const dataBase64 = toBase64(buffer as ArrayBuffer);
+        console.log("File path selected:", filePath);
 
-        try {
-          // Use Directory.Cache for Android (more reliable than Documents)
-          const directory = Directory.Cache;
-          
-          await Filesystem.writeFile({
-            path: filename,
-            data: dataBase64,
-            directory: directory,
-            recursive: true,
+        if (filePath) {
+          await writeFile(filePath, new Uint8Array(buffer));
+          console.log("File written successfully");
+          toast({
+            title: "Berhasil",
+            description: "File berhasil disimpan",
           });
-
-          const uri = await Filesystem.getUri({
-            path: filename,
-            directory: directory,
-          });
-
-          await Share.share({
-            title: "Laporan Penjualan",
-            text: filename,
-            url: uri.uri,
-            dialogTitle: "Bagikan Laporan",
-          });
-        } catch (error) {
-          console.error("Error writing file on native platform:", error);
-          toast({ 
-            title: "Gagal Download", 
-            description: "Terjadi kesalahan saat menyimpan file", 
-            variant: "destructive" 
+        } else {
+          toast({
+            title: "Dibatalkan",
+            description: "User membatalkan pemilihan file",
           });
         }
-      } else {
-        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = filename;
-        link.click();
-        window.URL.revokeObjectURL(url);
+      } catch (error: any) {
+        console.log("Tauri not available, using fallback:", error.message);
+        // Fallback to Capacitor or browser
+        if (Capacitor.isNativePlatform()) {
+          // On Android/iOS (Capacitor native), browser-style download often doesn't work.
+          // Save the file using Filesystem then open share sheet.
+          const { Filesystem, Directory } = await import("@capacitor/filesystem");
+          const { Share } = await import("@capacitor/share");
+
+          const toBase64 = (arrayBuffer: ArrayBuffer): string => {
+            const bytes = new Uint8Array(arrayBuffer);
+            const chunkSize = 0x8000;
+            let binary = '';
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+              binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+            }
+            return btoa(binary);
+          };
+
+          const dataBase64 = toBase64(buffer as ArrayBuffer);
+
+          try {
+            // Use Directory.Cache for Android (more reliable than Documents)
+            const directory = Directory.Cache;
+
+            await Filesystem.writeFile({
+              path: filename,
+              data: dataBase64,
+              directory: directory,
+              recursive: true,
+            });
+
+            const uri = await Filesystem.getUri({
+              path: filename,
+              directory: directory,
+            });
+
+            await Share.share({
+              title: "Laporan Penjualan",
+              text: filename,
+              url: uri.uri,
+              dialogTitle: "Bagikan Laporan",
+            });
+          } catch (err) {
+            console.error("Error writing file on native platform:", err);
+            toast({
+              title: "Gagal Download",
+              description: "Terjadi kesalahan saat menyimpan file",
+              variant: "destructive"
+            });
+          }
+        } else {
+          // Browser fallback
+          console.log("Using browser fallback");
+          const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = filename;
+          link.click();
+          window.URL.revokeObjectURL(url);
+          toast({
+            title: "Download",
+            description: "File sedang didownload",
+          });
+        }
       }
     } catch (err) {
       console.error("Error downloading report:", err);

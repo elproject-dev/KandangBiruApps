@@ -8,9 +8,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { formatCurrency } from "@/lib/store";
 import { getTransactions, deleteTransaction, type Transaction, getSettings } from "@/lib/supabase-store";
 import { useToast } from "@/hooks/use-toast";
-import { Printer as CapacitorPrinter } from "@capgo/capacitor-printer";
 import { Capacitor } from "@capacitor/core";
 import { print, type PrintTemplateData } from "@/lib/print";
+import { buildEscPosReceipt } from "@/lib/escpos-receipt";
+import { bluetoothPrintEscPos } from "@/lib/bluetooth-spp-printer";
+import { SerialPort } from "tauri-plugin-serialplugin-api";
 
 function TransactionCard({ transaction, onDelete, expanded, onToggle, isAdminMode }: { transaction: Transaction; onDelete: (id: string) => void; expanded: boolean; onToggle: () => void; isAdminMode: boolean }) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -33,25 +35,65 @@ function TransactionCard({ transaction, onDelete, expanded, onToggle, isAdminMod
       ppnPercentage: transaction.ppnPercentage,
     };
 
-    const html = await print(printData, settings);
-
-    if (Capacitor.isNativePlatform()) {
+    // Check if running in Tauri Desktop
+    if (typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window)) {
       try {
-        await CapacitorPrinter.printHtml({
-          html: html,
-        });
+        const selectedPort = localStorage.getItem("selectedSerialPort");
+        if (!selectedPort) {
+          toast({
+            title: "Printer Belum Diset",
+            description: "Pilih port COM di Settings terlebih dahulu",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const escpos = buildEscPosReceipt(printData, settings);
+        const port = new SerialPort({ path: selectedPort, baudRate: 9600 });
+        await port.open();
+        await port.write(escpos);
+        await port.close();
       } catch (err) {
-        console.error("Capacitor printing failed:", err);
+        console.error("Serial printing failed:", err);
+        const msg = err instanceof Error ? err.message : String(err);
         toast({
           title: "Gagal Print",
-          description: "Terjadi kesalahan saat mencetak di Android",
+          description: msg,
           variant: "destructive",
         });
       }
       return;
     }
 
-    // Use window.open for web platform
+    // Android/iOS native platform
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const address = (localStorage.getItem("bluetoothPrinterAddress") || "").trim();
+        if (!address) {
+          toast({
+            title: "Printer Belum Diset",
+            description: "Isi alamat (MAC) printer di Settings terlebih dahulu",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const escpos = buildEscPosReceipt(printData, settings);
+        await bluetoothPrintEscPos(address, escpos);
+      } catch (err) {
+        console.error("Bluetooth printing failed:", err);
+        const msg = err instanceof Error ? err.message : String(err);
+        toast({
+          title: "Gagal Print",
+          description: msg,
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
+    // Web platform - HTML print
+    const html = await print(printData, settings);
     const printWindow = window.open("", "_blank", "width=800,height=700");
     if (!printWindow) {
       toast({

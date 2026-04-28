@@ -1,5 +1,6 @@
-import { Settings as SettingsIcon, Type, Moon, Sun, Plus, Trash2, AlertCircle, Store, QrCode, Package, Tag, Loader2, Clock } from "lucide-react";
+import { Settings as SettingsIcon, Type, Moon, Sun, Plus, Trash2, AlertCircle, Store, QrCode, Package, Tag, Loader2, Clock, Eye } from "lucide-react";
 import { Capacitor } from '@capacitor/core';
+import { SerialPort } from 'tauri-plugin-serialplugin-api';
 import { getPrayerNotificationsEnabled, setPrayerNotificationsEnabled, schedulePrayerNotifications, resetPrayerSchedule } from "@/lib/notifications";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,7 +12,9 @@ import { useTheme } from "@/lib/theme-context";
 import { useAuth } from "@/lib/auth-context";
 import { useCategories } from "@/lib/category-context";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getSettings, saveSettings, getProducts, deleteProduct, clearAllTransactions } from "@/lib/supabase-store";
+import { buildEscPosReceipt, removeEscapeSequences } from "@/lib/escpos-receipt";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -39,8 +42,15 @@ export default function SettingsPage() {
   const [storeAddress, setStoreAddress] = useState("Jl. Peternakan No.22 Ngalor Ngidul, Kec. Nganjuk");
   const [storePhone, setStorePhone] = useState("0812-3456-7890");
   const [storeFooter, setStoreFooter] = useState("Terima kasih telah berbelanja");
+  const [bluetoothPrinterAddress, setBluetoothPrinterAddress] = useState("");
+  const [availablePorts, setAvailablePorts] = useState<string[]>([]);
+  const [scanningPorts, setScanningPorts] = useState(false);
+  const [selectedPort, setSelectedPort] = useState("");
+  const [isTauriDesktop, setIsTauriDesktop] = useState(false);
   const [qrCodeLink, setQrCodeLink] = useState("");
   const [showQRCode, setShowQRCode] = useState(false);
+  const [showReceiptPreview, setShowReceiptPreview] = useState(false);
+  const [receiptPreviewText, setReceiptPreviewText] = useState("");
   const [enableServiceCharge, setEnableServiceCharge] = useState(false);
   const [defaultServiceCharge, setDefaultServiceCharge] = useState("");
   const [enableDiscount, setEnableDiscount] = useState(true);
@@ -89,6 +99,12 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setMounted(true);
+    // Detect if running in Tauri desktop (works in both dev and production)
+    setIsTauriDesktop(
+      typeof window !== 'undefined' &&
+      ('__TAURI__' in window || '__TAURI_INTERNALS__' in window)
+    );
+
     const loadSettings = async () => {
       try {
         const settings = await getSettings();
@@ -96,6 +112,7 @@ export default function SettingsPage() {
         setStoreAddress(settings.storeAddress || "Jl. Peternakan No.22 Ngalor Ngidul, Kec. Nganjuk");
         setStorePhone(settings.storePhone || "0812-3456-7890");
         setStoreFooter(settings.storeFooter || "Terima kasih telah berbelanja");
+        setBluetoothPrinterAddress(settings.bluetoothPrinterAddress || localStorage.getItem("bluetoothPrinterAddress") || "");
         setQrCodeLink(settings.qrCodeLink || "");
         setShowQRCode(settings.showQRCode || false);
         setEnableServiceCharge(settings.enableServiceCharge || false);
@@ -111,6 +128,7 @@ export default function SettingsPage() {
         setStoreAddress(localStorage.getItem("storeAddress") || "Jl. Peternakan No.22 Ngalor Ngidul, Kec. Nganjuk");
         setStorePhone(localStorage.getItem("storePhone") || "0812-3456-7890");
         setStoreFooter(localStorage.getItem("storeFooter") || "Terima kasih telah berbelanja");
+        setBluetoothPrinterAddress(localStorage.getItem("bluetoothPrinterAddress") || "");
         setQrCodeLink(localStorage.getItem("qrCodeLink") || "");
         const savedShowQRCode = localStorage.getItem("showQRCode");
         setShowQRCode(savedShowQRCode === "true");
@@ -128,6 +146,12 @@ export default function SettingsPage() {
       // Load notification settings from localStorage (Android only)
       const savedEnableNotifications = localStorage.getItem("enableStockNotifications");
       setEnableStockNotifications(savedEnableNotifications !== "false");
+
+      // Load selected serial port (Tauri Desktop)
+      const savedSelectedPort = localStorage.getItem("selectedSerialPort");
+      if (savedSelectedPort) {
+        setSelectedPort(savedSelectedPort);
+      }
 
       // Load prayer notification setting
       const prayerEnabled = getPrayerNotificationsEnabled();
@@ -220,6 +244,8 @@ export default function SettingsPage() {
         enablePPN,
         defaultPPN,
       });
+      localStorage.setItem("bluetoothPrinterAddress", bluetoothPrinterAddress.trim());
+      localStorage.setItem("selectedSerialPort", selectedPort);
       toast({
         title: "Berhasil",
         description: "Pengaturan toko telah disimpan",
@@ -228,8 +254,139 @@ export default function SettingsPage() {
       console.error("Failed to save settings:", err);
       toast({
         title: "Error",
-        description: "Gagal menyimpan pengaturan",
+        description: "Gagal menyimpan pengaturan toko",
         variant: "destructive",
+      });
+    }
+  };
+
+  const handlePreviewReceipt = () => {
+    const sampleData = {
+      id: "TRX-001",
+      date: new Date().toISOString(),
+      customerName: "Pelanggan Contoh",
+      items: [
+        {
+          product: { name: "Pakan Ayam 5kg" },
+          quantity: 2,
+          variant: { unit: "sak", sellingPrice: 50000 },
+        },
+        {
+          product: { name: "Vitamin Ternak" },
+          quantity: 1,
+          variant: { unit: "botol", sellingPrice: 25000 },
+        },
+      ],
+      discount: 5000,
+      serviceCharge: 0,
+      ppn: 0,
+      ppnPercentage: 0,
+      total: 120000,
+      paymentMethod: "CASH",
+    };
+
+    const settings = {
+      storeName,
+      storeAddress,
+      storePhone,
+      storeFooter,
+    };
+
+    const escpos = buildEscPosReceipt(sampleData, settings);
+    const cleanEscpos = removeEscapeSequences(escpos);
+    setReceiptPreviewText(cleanEscpos);
+    setShowReceiptPreview(true);
+  };
+
+  const handleScanPorts = async () => {
+    setScanningPorts(true);
+    try {
+      // Check if running in Tauri (works in both dev and production)
+      if (typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window)) {
+        const ports = await SerialPort.available_ports();
+        // Convert object to array of port names
+        const portNames = Object.keys(ports);
+        setAvailablePorts(portNames);
+        toast({
+          title: "Scan Berhasil",
+          description: `Ditemukan ${portNames.length} port COM`,
+        });
+      } else {
+        toast({
+          title: "Info",
+          description: "Scan port hanya tersedia di Tauri Desktop",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error scanning ports:", error);
+      toast({
+        title: "Gagal Scan",
+        description: error?.message || "Terjadi kesalahan",
+        variant: "destructive"
+      });
+    } finally {
+      setScanningPorts(false);
+    }
+  };
+
+  const handleTestPrint = async () => {
+    if (!selectedPort) {
+      toast({
+        title: "Error",
+        description: "Pilih port COM terlebih dahulu",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Generate test receipt
+      const sampleData = {
+        id: "TEST-001",
+        date: new Date().toISOString(),
+        customerName: "TEST PRINT",
+        items: [
+          {
+            product: { name: "Test Item" },
+            quantity: 1,
+            variant: { unit: "pcs", sellingPrice: 10000 },
+          },
+        ],
+        discount: 0,
+        serviceCharge: 0,
+        ppn: 0,
+        ppnPercentage: 0,
+        total: 10000,
+        paymentMethod: "CASH",
+      };
+
+      const settings = {
+        storeName,
+        storeAddress,
+        storePhone,
+        storeFooter,
+      };
+
+      const escpos = buildEscPosReceipt(sampleData, settings);
+
+      // Send to printer via serial port
+      if (typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window)) {
+        const port = new SerialPort({ path: selectedPort, baudRate: 9600 });
+        await port.open();
+        await port.write(escpos);
+        await port.close();
+
+        toast({
+          title: "Print Berhasil",
+          description: "Test receipt terkirim ke printer",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error printing:", error);
+      toast({
+        title: "Gagal Print",
+        description: error?.message || "Terjadi kesalahan",
+        variant: "destructive"
       });
     }
   };
@@ -498,9 +655,63 @@ export default function SettingsPage() {
               onChange={(e) => setStoreFooter(e.target.value)}
               className="text-sm"
             />
-            <Button onClick={handleSaveStoreSettings} className="w-full mt-2">
-              Simpan Pengaturan Toko
-            </Button>
+            {/* Bluetooth MAC Address untuk Android */}
+            {!isTauriDesktop && (
+              <Input
+                placeholder="MAC Address Printer Bluetooth (contoh: 00:11:22:33:44:55)"
+                value={bluetoothPrinterAddress}
+                onChange={(e) => setBluetoothPrinterAddress(e.target.value)}
+                className="text-sm"
+              />
+            )}
+            {/* Serial Port untuk Tauri Desktop */}
+            {isTauriDesktop && (
+              <div className="space-y-2 mt-2">
+                <div className="flex gap-2">
+                  <Select value={selectedPort} onValueChange={setSelectedPort}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Pilih Port COM" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availablePorts.map((port) => (
+                        <SelectItem key={port} value={port}>
+                          {port}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    onClick={handleScanPorts}
+                    disabled={scanningPorts}
+                    variant="outline"
+                    size="icon"
+                  >
+                    {scanningPorts ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Loader2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <Button
+                  onClick={handleTestPrint}
+                  disabled={!selectedPort}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Test Print Bluetooth
+                </Button>
+              </div>
+            )}
+            <div className="flex gap-2 mt-2">
+              <Button onClick={handleSaveStoreSettings} className="flex-1">
+                Simpan
+              </Button>
+              <Button onClick={handlePreviewReceipt} variant="outline" className="flex-1">
+                <Eye className="h-4 w-4 mr-2" />
+                Preview
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -831,6 +1042,19 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={showReceiptPreview} onOpenChange={setShowReceiptPreview}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Preview Struk 58mm</DialogTitle>
+          </DialogHeader>
+          <div className="bg-gray-100 p-4 rounded-lg">
+            <pre className="text-xs font-mono whitespace-pre-wrap bg-white p-4 rounded border">
+              {receiptPreviewText}
+            </pre>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
